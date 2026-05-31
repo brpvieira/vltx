@@ -1,0 +1,10 @@
+.github/
+coverage/
+src/
+tests/
+tsconfig*.json
+.eslintrc*
+.prettierrc*
+.editorconfig
+.npmrc
+.npmignore

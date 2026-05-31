@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Coverage report
+coverage/
+
 # Environment variables (Secrets)
 .env
 .env.local

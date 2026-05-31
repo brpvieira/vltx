@@ -6,6 +6,10 @@ export default defineConfig({
     globals: true,
     typecheck: {
       tsconfig: './tsconfig.test.json'
+    },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov']
     }
   },
 });
