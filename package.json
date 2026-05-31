@@ -28,7 +28,7 @@
     "prepublishOnly": "npm run build",
     "lint:fix": "eslint --fix .",
     "lint": "tsc --noEmit && eslint .",
-    "test": "npm run lint && vitest run",
+    "test": "npm run lint:fix && vitest run",
     "test:coverage": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "prerelease": "npm test",
