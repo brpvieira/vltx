@@ -33,7 +33,8 @@
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "prerelease": "npm test",
     "release": "standard-version",
-    "prepare": "husky"
+    "prepare": "husky",
+    "commit": "commit"
   },
   "keywords": [],
   "author": "",
@@ -41,6 +42,7 @@
   "devDependencies": {
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
+    "@commitlint/prompt-cli": "^21.0.2",
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.1",
     "@vitest/coverage-v8": "^4.1.7",
