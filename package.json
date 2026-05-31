@@ -1,12 +1,15 @@
 {
   "name": "vault",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "engines": {
     "node": ">=12"
   },
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "vault": "./dist/bin/cli"
+  },
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
@@ -21,6 +24,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "postBuild": "chmod +x dist/bin/cli.js",
     "prepublishOnly": "npm run build",
     "lint:fix": "eslint --fix .",
     "lint": "tsc --noEmit && eslint .",
