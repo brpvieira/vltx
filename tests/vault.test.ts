@@ -1,5 +1,6 @@
 import { assert, describe, it } from 'vitest';
-import { generateRSAKeyPair, parsePrivateKey, parsePublicKey } from '../src/core/vault.js';
+import { derivePublicKey, generateRSAKeyPair, parsePrivateKey,
+    parsePublicKey, DEFAULT_PUBLIC_ENCODING } from '../src/core/vault.js';
 
 describe('vault', () => {
     it('generates a RSA key pair without a password', () => {
@@ -39,5 +40,17 @@ describe('vault', () => {
         assert.deepStrictEqual(parsed.type, 'private');
         assert.deepStrictEqual(parsed.asymmetricKeyType, 'rsa');
         assert.deepStrictEqual(parsed.asymmetricKeyDetails?.modulusLength, 4096);
+    });
+
+    it('derives the public key given a private key', () => {
+        const { privateKey, publicKey } = generateRSAKeyPair();
+        const parsed = parsePrivateKey(privateKey);
+        const derived = derivePublicKey(parsed);
+        assert(derived);
+        assert.deepStrictEqual(derived.type, 'public');
+        assert.deepStrictEqual(derived.asymmetricKeyType, 'rsa');
+        assert.deepStrictEqual(derived.asymmetricKeyDetails?.modulusLength, 4096);
+        const exported = derived.export(DEFAULT_PUBLIC_ENCODING).toString('utf8');
+        assert.deepStrictEqual(publicKey, exported);
     });
 });

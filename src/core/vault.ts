@@ -2,7 +2,27 @@ import { generateKeyPairSync, createPublicKey,
     createPrivateKey } from 'node:crypto';
 import type { KeyPairExportResult, RSAKeyPairOptions,
     PrivateKeyExportOptions, PublicKeyExportOptions,
-    KeyObject, PrivateKeyInput } from 'node:crypto';
+    KeyObject, PrivateKeyInput, PublicKeyInput } from 'node:crypto';
+
+/** Default private key export options: PKCS#8, PEM, no encryption. */
+export const DEFAULT_PRIVATE_ENCODING: PrivateKeyExportOptions<'pkcs8'> = {
+        type: 'pkcs8',
+        format: 'pem'
+
+};
+
+/** Default public key export options: SPKI, PEM. */
+export const DEFAULT_PUBLIC_ENCODING: PublicKeyExportOptions<'spki'>  = {
+    type: 'spki',
+    format: 'pem'
+};
+
+/** Default RSA key-pair generation options: 4096-bit modulus with {@link DEFAULT_PRIVATE_ENCODING} and {@link DEFAULT_PUBLIC_ENCODING}. */
+export const RSA_OPTIONS: RSAKeyPairOptions = {
+    modulusLength: 4096,
+    privateKeyEncoding: { ...DEFAULT_PRIVATE_ENCODING },
+    publicKeyEncoding: { ...DEFAULT_PUBLIC_ENCODING }
+};
 
 /**
  * Generates a 4096-bit RSA key pair in PEM format.
@@ -14,9 +34,8 @@ import type { KeyPairExportResult, RSAKeyPairOptions,
 export function generateRSAKeyPair(passphrase?: string):
     KeyPairExportResult<RSAKeyPairOptions> {
     const privateKeyEncoding: PrivateKeyExportOptions<'pkcs8'> = {
-        type: 'pkcs8',
-        format: 'pem'
-    }
+        ...DEFAULT_PRIVATE_ENCODING
+    };
 
     if (passphrase) {
         Object.assign(privateKeyEncoding, {
@@ -25,16 +44,7 @@ export function generateRSAKeyPair(passphrase?: string):
         });
     }
 
-    const publicKeyEncoding: PublicKeyExportOptions<'spki'> = {
-        type: 'spki',
-        format: 'pem'
-    };
-
-    const opts: RSAKeyPairOptions = {
-        modulusLength: 4096,
-        publicKeyEncoding,
-        privateKeyEncoding
-    };
+    const opts: RSAKeyPairOptions = { ...RSA_OPTIONS, privateKeyEncoding };
 
     return generateKeyPairSync('rsa', opts);
 }
@@ -62,4 +72,15 @@ export function parsePrivateKey(str: string, passphrase?: string): KeyObject {
         Object.assign(key, { passphrase });
     }
     return createPrivateKey(key);
+}
+
+type DerivePublicKeyInput = PublicKeyInput | string | Buffer | KeyObject;
+
+/**
+ * Derives a public key from an existing key object, PEM/DER string, or Buffer.
+ * @param input - The source key material to derive the public key from.
+ * @returns A `KeyObject` representing the derived public key.
+ */
+export function derivePublicKey(input: DerivePublicKeyInput): KeyObject {
+    return createPublicKey(input);
 }
