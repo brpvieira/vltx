@@ -1,21 +1,21 @@
 import { assert, describe, it } from 'vitest';
 import { derivePublicKey, generateRSAKeyPair, parsePrivateKey,
-    parsePublicKey, DEFAULT_PUBLIC_ENCODING } from '../src/core/vault.js';
+    parsePublicKey, DEFAULT_PUBLIC_ENCODING } from '../src/core/rsa.js';
 
-describe('vault', () => {
-    it('generates a RSA key pair without a password', () => {
+describe('RSA', () => {
+    it('generates a key pair without a password', () => {
         const { privateKey, publicKey } = generateRSAKeyPair();
         assert.match(privateKey, /---BEGIN PRIVATE KEY--/);
         assert.match(publicKey, /---BEGIN PUBLIC KEY---/);
     });
 
-    it('generates a password-protected RSA key pair', () => {
+    it('generates a password-protected key pair', () => {
         const { privateKey, publicKey } = generateRSAKeyPair('foobar');
         assert.match(privateKey, /---BEGIN ENCRYPTED PRIVATE KEY--/);
         assert.match(publicKey, /---BEGIN PUBLIC KEY---/);
     });
 
-    it('parses a RSA public key from a string', () => {
+    it('parses a public key from a string', () => {
         const { publicKey } = generateRSAKeyPair();
         const parsed = parsePublicKey(publicKey);
         assert(parsed);
@@ -24,7 +24,7 @@ describe('vault', () => {
         assert.deepStrictEqual(parsed.asymmetricKeyDetails?.modulusLength, 4096);
     });
 
-    it('parses a RSA private key from a string', () => {
+    it('parses a private key from a string', () => {
         const { privateKey } = generateRSAKeyPair();
         const parsed = parsePrivateKey(privateKey);
         assert(parsed);
@@ -33,7 +33,7 @@ describe('vault', () => {
         assert.deepStrictEqual(parsed.asymmetricKeyDetails?.modulusLength, 4096);
     });
 
-    it('parses an ecrypted RSA private key from a string', () => {
+    it('parses an ecrypted private key from a string', () => {
         const { privateKey } = generateRSAKeyPair('foobar');
         const parsed = parsePrivateKey(privateKey, 'foobar');
         assert(parsed);
