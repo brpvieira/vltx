@@ -45,6 +45,7 @@
     "@commitlint/prompt-cli": "^21.0.2",
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.1",
+    "@types/yargs": "^17.0.35",
     "@vitest/coverage-v8": "^4.1.7",
     "@vitest/eslint-plugin": "^1.6.18",
     "eslint": "^10.4.1",
@@ -62,5 +63,9 @@
     "*.{js,ts,jsx,tsx}": [
       "eslint --fix"
     ]
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "yargs": "^18.0.0"
   }
 }

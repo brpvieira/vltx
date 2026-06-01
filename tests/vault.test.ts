@@ -1,5 +1,5 @@
 import { assert, beforeAll, describe, expect, it } from 'vitest';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Vault from '../src/core/vault.js';
@@ -252,6 +252,60 @@ describe('Vault.set / Vault.replace', () => {
         const v = new Vault({ privateKey: privateKeyPem });
         v.replace('secret', 'my-plaintext');
         expect(v.get('secret')).eq('my-plaintext');
+    });
+});
+
+describe('Vault.init', () => {
+    it('creates the vault file on disk', () => {
+        const vaultPath = join(tmpDir, 'init.vault.json');
+        Vault.init(vaultPath, { privateKey: privateKeyPem });
+        assert(existsSync(vaultPath));
+    });
+
+    it('returned vault has both keys configured', () => {
+        const vaultPath = join(tmpDir, 'init-keys.vault.json');
+        const v = Vault.init(vaultPath, { privateKey: privateKeyPem });
+        assert(v.canEncrypt);
+        assert(v.canDecrypt);
+    });
+
+    it('generates a private key file when it does not exist', () => {
+        const keyPath = join(tmpDir, 'generated-init.pem');
+        const vaultPath = join(tmpDir, 'init-genkey.vault.json');
+        assert(!existsSync(keyPath));
+        Vault.init(vaultPath, { privateKeyFilename: keyPath });
+        assert(existsSync(keyPath));
+        assert(existsSync(vaultPath));
+    });
+
+    it('uses an existing private key file without regenerating', () => {
+        const keyPath = join(tmpDir, 'existing-init.pem');
+        writeFileSync(keyPath, privateKeyPem);
+        const vaultPath = join(tmpDir, 'init-existing.vault.json');
+        const v = Vault.init(vaultPath, { privateKeyFilename: keyPath });
+        assert(v.canDecrypt);
+        const keyContent = readFileSync(keyPath, 'utf8');
+        assert.equal(keyContent, privateKeyPem);
+    });
+
+    it('throws when no key material is provided', () => {
+        const vaultPath = join(tmpDir, 'init-nokey.vault.json');
+        assert.throws(
+            () => Vault.init(vaultPath, {}),
+            /privateKey/,
+        );
+    });
+
+    it('returned vault can immediately write secrets', () => {
+        const vaultPath = join(tmpDir, 'init-write.vault.json');
+        const v = Vault.init(vaultPath, { privateKey: privateKeyPem });
+        v.replace('hello', 'world');
+        v.write();
+        const v2 = new Vault({
+            filename: vaultPath,
+            privateKey: privateKeyPem,
+        });
+        expect(v2.get('hello')).eq('world');
     });
 });
 

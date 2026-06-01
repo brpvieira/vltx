@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { KeyObject, privateDecrypt, publicEncrypt } from 'node:crypto';
 import { parsePrivateKey, parsePublicKey, derivePublicKey,
-    DEFAULT_PUBLIC_ENCODING } from './rsa.js';
+    DEFAULT_PUBLIC_ENCODING, generateRSAKeyPair } from './rsa.js';
 import { stuffString, unstuffString } from './util.js';
 
 /** Options for supplying a private key to a {@link Vault}. */
@@ -368,5 +368,49 @@ export default class Vault implements Map<string, string> {
      */
     [Symbol.iterator](): MapIterator<[string, string]> {
         return this.#secrets.entries();
+    }
+
+    /**
+     * Creates a new vault file at `filename` and persists it to
+     * disk.
+     *
+     * When `privateKeyOpts.privateKeyFilename` is provided and that
+     * path does not yet exist, a fresh 4096-bit RSA key pair is
+     * generated and the private key is written there before the
+     * vault is created.
+     *
+     * The returned instance has its filename stored and is ready
+     * for both encryption and decryption.
+     *
+     * @param filename - Destination path for the vault JSON file.
+     * @param privateKeyOpts - Key material. Must include either
+     *   `privateKey` or `privateKeyFilename`.
+     * @returns A configured {@link Vault} backed by `filename`.
+     * @throws {Error} If neither `privateKey` nor
+     *   `privateKeyFilename` is provided.
+     */
+    static init(
+        filename: string, privateKeyOpts: PrivateKeyConfig,
+    ): Vault {
+        if (!privateKeyOpts.privateKey &&
+            !privateKeyOpts.privateKeyFilename) {
+            throw new Error(
+                'Either privateKey or privateKeyFilename must be ' +
+                'provided to initialize a vault',
+            );
+        }
+
+        const { privateKeyFilename, passphrase } = privateKeyOpts;
+        if (privateKeyFilename && !existsSync(privateKeyFilename)) {
+            const { privateKey } = generateRSAKeyPair(passphrase);
+            writeFileSync(privateKeyFilename, privateKey as string);
+        }
+
+        // Build without filename so the constructor does not attempt
+        // to read a file that does not yet exist.
+        const v = new Vault(privateKeyOpts);
+        v.#filename = filename;
+        v.write();
+        return v;
     }
 }
