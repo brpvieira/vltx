@@ -2,8 +2,8 @@
 import dotenv from 'dotenv';
 import yargs, { type Argv } from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import Vault, { type PrivateKeyConfig, type VaultConfig }
-    from '../core/vault.js';
+import Vault, { type VaultConfig } from '../core/vault.js';
+import getConfig from '../core/env.js';
 
 dotenv.config(); // populate process.env from .env when present
 
@@ -28,19 +28,32 @@ export function listKeys(v: Vault, vaultFile: string): void {
     }
 }
 
+type ResolvedConfig = VaultConfig & { filename: string; privateKeyFilename: string };
+
+function resolveConfig(argv: Record<string, unknown>): ResolvedConfig {
+    const args: VaultConfig = {};
+    const vaultFile = argv['vault-file'] as string | undefined;
+    const keyFile = argv['key-file'] as string | undefined;
+    const passphrase = argv['passphrase'] as string | undefined;
+    if (vaultFile) args.filename = vaultFile;
+    if (keyFile) args.privateKeyFilename = keyFile;
+    if (passphrase) args.passphrase = passphrase;
+    return getConfig(args) as ResolvedConfig;
+}
+
 const cli = yargs(hideBin(process.argv))
     .scriptName('vault-cli')
     .usage('$0 <command> [options]')
 
     // -- init ----------------------------------------------------─
     .command(
-        'init <vault-file>',
+        'init [vault-file]',
         'Create a new vault, generating a key pair if needed',
         (y: Argv) => y
             .positional('vault-file', {
                 type: 'string',
-                demandOption: true,
-                describe: 'Path to the vault JSON file to create',
+                describe: 'Path to the vault JSON file to create' +
+                    ' [$VAULT_FILE]',
             })
             .option('key-file', {
                 alias: 'k',
@@ -55,29 +68,21 @@ const cli = yargs(hideBin(process.argv))
                     ' [$VAULT_PASSPHRASE]',
             }),
         (argv) => {
-            const vaultFile = argv['vault-file'] as string;
-            const keyFile = (argv['key-file'] as string | undefined) ??
-                process.env['VAULT_KEY_FILE'] ??
-                vaultFile.replace(/(\.[^.]+)?$/, '.pem');
-            const opts: PrivateKeyConfig = { privateKeyFilename: keyFile };
-            const passphrase = (argv.passphrase as string | undefined) ??
-                process.env['VAULT_PASSPHRASE'];
-            if (passphrase !== undefined) opts.passphrase = passphrase;
-            Vault.init(vaultFile, opts);
-            console.log(`Vault initialised:  ${vaultFile}`);
-            console.log(`Private key:        ${keyFile}`);
-        },
+            const cfg = resolveConfig(argv as Record<string, unknown>);
+            Vault.init(cfg.filename!, cfg);
+            console.log(`Vault initialised:  ${cfg.filename}`);
+            console.log(`Private key:        ${cfg.privateKeyFilename}`);
+        }
     )
 
     // -- add ------------------------------------------------------
     .command(
-        'add <vault-file> <key> <value>',
+        'add [vault-file] <key> <value>',
         'Encrypt and add a new secret (fails if key exists)',
         (y: Argv) => y
             .positional('vault-file', {
                 type: 'string',
-                demandOption: true,
-                describe: 'Path to the vault JSON file',
+                describe: 'Path to the vault JSON file [$VAULT_FILE]',
             })
             .positional('key', {
                 type: 'string',
@@ -90,9 +95,8 @@ const cli = yargs(hideBin(process.argv))
                 describe: 'Plaintext value to encrypt',
             }),
         (argv) => {
-            const v = new Vault({
-                filename: argv['vault-file'] as string,
-            });
+            const { filename } = resolveConfig(argv as Record<string, unknown>);
+            const v = new Vault({ filename });
             v.set(argv.key as string, argv.value as string);
             v.write();
             console.log(`Added: ${argv.key as string}`);
@@ -101,13 +105,12 @@ const cli = yargs(hideBin(process.argv))
 
     // -- delete --------------------------------------------------─
     .command(
-        'delete <vault-file> <key>',
+        'delete [vault-file] <key>',
         'Remove a secret from the vault',
         (y: Argv) => y
             .positional('vault-file', {
                 type: 'string',
-                demandOption: true,
-                describe: 'Path to the vault JSON file',
+                describe: 'Path to the vault JSON file [$VAULT_FILE]',
             })
             .positional('key', {
                 type: 'string',
@@ -115,9 +118,8 @@ const cli = yargs(hideBin(process.argv))
                 describe: 'Secret key name to remove',
             }),
         (argv) => {
-            const v = new Vault({
-                filename: argv['vault-file'] as string,
-            });
+            const { filename } = resolveConfig(argv as Record<string, unknown>);
+            const v = new Vault({ filename });
             if (!v.delete(argv.key as string)) {
                 console.error(
                     `Key not found: ${argv.key as string}`,
@@ -131,13 +133,12 @@ const cli = yargs(hideBin(process.argv))
 
     // -- replace --------------------------------------------------
     .command(
-        'replace <vault-file> <key> <value>',
+        'replace [vault-file] <key> <value>',
         'Encrypt and insert or overwrite a secret',
         (y: Argv) => y
             .positional('vault-file', {
                 type: 'string',
-                demandOption: true,
-                describe: 'Path to the vault JSON file',
+                describe: 'Path to the vault JSON file [$VAULT_FILE]',
             })
             .positional('key', {
                 type: 'string',
@@ -150,9 +151,8 @@ const cli = yargs(hideBin(process.argv))
                 describe: 'Plaintext value to encrypt',
             }),
         (argv) => {
-            const v = new Vault({
-                filename: argv['vault-file'] as string,
-            });
+            const { filename } = resolveConfig(argv as Record<string, unknown>);
+            const v = new Vault({ filename });
             v.replace(argv.key as string, argv.value as string);
             v.write();
             console.log(`Replaced: ${argv.key as string}`);
@@ -161,13 +161,12 @@ const cli = yargs(hideBin(process.argv))
 
     // -- get ------------------------------------------------------
     .command(
-        'get <vault-file> <key>',
+        'get [vault-file] <key>',
         'Decrypt and print a secret value',
         (y: Argv) => y
             .positional('vault-file', {
                 type: 'string',
-                demandOption: true,
-                describe: 'Path to the vault JSON file',
+                describe: 'Path to the vault JSON file [$VAULT_FILE]',
             })
             .positional('key', {
                 type: 'string',
@@ -187,25 +186,8 @@ const cli = yargs(hideBin(process.argv))
                     ' [$VAULT_PASSPHRASE]',
             }),
         (argv) => {
-            const keyFile = (argv['key-file'] as string | undefined) ??
-                process.env['VAULT_KEY_FILE'];
-            if (keyFile === undefined) {
-                console.error(
-                    'key-file is required; ' +
-                    'pass --key-file or set VAULT_KEY_FILE',
-                );
-                process.exit(1);
-            }
-            const vaultOpts: VaultConfig = {
-                filename: argv['vault-file'] as string,
-                privateKeyFilename: keyFile,
-            };
-            const passphrase = (argv.passphrase as string | undefined) ??
-                process.env['VAULT_PASSPHRASE'];
-            if (passphrase !== undefined) {
-                vaultOpts.passphrase = passphrase;
-            }
-            const v = new Vault(vaultOpts);
+            const cfg = resolveConfig(argv as Record<string, unknown>);
+            const v = new Vault(cfg);
             const value = v.get(argv.key as string);
             if (value === undefined) {
                 console.error(`Key not found: ${argv.key as string}`);
@@ -217,18 +199,17 @@ const cli = yargs(hideBin(process.argv))
 
     // -- list ----------------------------------------------------─
     .command(
-        'list <vault-file>',
+        'list [vault-file]',
         'List all secret keys in the vault',
         (y: Argv) => y
             .positional('vault-file', {
                 type: 'string',
-                demandOption: true,
-                describe: 'Path to the vault JSON file',
+                describe: 'Path to the vault JSON file [$VAULT_FILE]',
             }),
         (argv) => {
-            const vaultFile = argv['vault-file'] as string;
-            const v = new Vault({ filename: vaultFile });
-            listKeys(v, vaultFile);
+            const { filename } = resolveConfig(argv as Record<string, unknown>);
+            const v = new Vault({ filename });
+            listKeys(v, filename!);
         },
     )
 
