@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
+    "lib": ["ES2021"],
+    "module": "node16",
+    "target": "ES2021",
+
     "outDir": "dist",
     "rootDir": "src",
-    "module": "nodenext",
-    "target": "esnext",
     "types": ["node"],
-    "lib": ["esnext"],
-    "sourceMap": false,
-    "declaration": true,
+    "sourceMap": true,
+    "declaration": false,
     "declarationMap": false,
 
     "noUncheckedIndexedAccess": true,
@@ -24,8 +25,9 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
+
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  "include": ["src"]
+  "include": ["src/**/*"]
 }
