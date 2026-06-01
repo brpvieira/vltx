@@ -1,1 +1,2 @@
+. ~/.nvm/nvm.sh && nvm use
 npx lint-staged

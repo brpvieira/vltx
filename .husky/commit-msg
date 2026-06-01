@@ -1,1 +1,2 @@
+. ~/.nvm/nvm.sh && nvm use
 npx --no-install commitlint --edit "$1"
