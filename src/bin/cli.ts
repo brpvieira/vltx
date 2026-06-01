@@ -1,8 +1,11 @@
 #!/usr/bin/env node
+import dotenv from 'dotenv';
 import yargs, { type Argv } from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import Vault, { type PrivateKeyConfig, type VaultConfig }
     from '../core/vault.js';
+
+dotenv.config(); // populate process.env from .env when present
 
 /**
  * Prints all secret keys in `v` as a formatted, sorted list.
@@ -29,7 +32,7 @@ const cli = yargs(hideBin(process.argv))
     .scriptName('vault-cli')
     .usage('$0 <command> [options]')
 
-    // ── init ─────────────────────────────────────────────────────
+    // -- init ----------------------------------------------------─
     .command(
         'init <vault-file>',
         'Create a new vault, generating a key pair if needed',
@@ -42,19 +45,23 @@ const cli = yargs(hideBin(process.argv))
             .option('key-file', {
                 alias: 'k',
                 type: 'string',
-                describe: 'Private key path (created if absent)',
+                describe: 'Private key path (created if absent)' +
+                    ' [$VAULT_KEY_FILE]',
             })
             .option('passphrase', {
                 alias: 'p',
                 type: 'string',
-                describe: 'Passphrase to protect the private key',
+                describe: 'Passphrase to protect the private key' +
+                    ' [$VAULT_PASSPHRASE]',
             }),
         (argv) => {
             const vaultFile = argv['vault-file'] as string;
             const keyFile = (argv['key-file'] as string | undefined) ??
+                process.env['VAULT_KEY_FILE'] ??
                 vaultFile.replace(/(\.[^.]+)?$/, '.pem');
             const opts: PrivateKeyConfig = { privateKeyFilename: keyFile };
-            const passphrase = argv.passphrase as string | undefined;
+            const passphrase = (argv.passphrase as string | undefined) ??
+                process.env['VAULT_PASSPHRASE'];
             if (passphrase !== undefined) opts.passphrase = passphrase;
             Vault.init(vaultFile, opts);
             console.log(`Vault initialised:  ${vaultFile}`);
@@ -62,7 +69,7 @@ const cli = yargs(hideBin(process.argv))
         },
     )
 
-    // ── add ──────────────────────────────────────────────────────
+    // -- add ------------------------------------------------------
     .command(
         'add <vault-file> <key> <value>',
         'Encrypt and add a new secret (fails if key exists)',
@@ -92,7 +99,7 @@ const cli = yargs(hideBin(process.argv))
         },
     )
 
-    // ── delete ───────────────────────────────────────────────────
+    // -- delete --------------------------------------------------─
     .command(
         'delete <vault-file> <key>',
         'Remove a secret from the vault',
@@ -122,7 +129,7 @@ const cli = yargs(hideBin(process.argv))
         },
     )
 
-    // ── replace ──────────────────────────────────────────────────
+    // -- replace --------------------------------------------------
     .command(
         'replace <vault-file> <key> <value>',
         'Encrypt and insert or overwrite a secret',
@@ -152,7 +159,7 @@ const cli = yargs(hideBin(process.argv))
         },
     )
 
-    // ── get ──────────────────────────────────────────────────────
+    // -- get ------------------------------------------------------
     .command(
         'get <vault-file> <key>',
         'Decrypt and print a secret value',
@@ -170,20 +177,31 @@ const cli = yargs(hideBin(process.argv))
             .option('key-file', {
                 alias: 'k',
                 type: 'string',
-                demandOption: true,
-                describe: 'Path to the private key file',
+                describe: 'Path to the private key file' +
+                    ' [$VAULT_KEY_FILE]',
             })
             .option('passphrase', {
                 alias: 'p',
                 type: 'string',
-                describe: 'Passphrase for the private key',
+                describe: 'Passphrase for the private key' +
+                    ' [$VAULT_PASSPHRASE]',
             }),
         (argv) => {
+            const keyFile = (argv['key-file'] as string | undefined) ??
+                process.env['VAULT_KEY_FILE'];
+            if (keyFile === undefined) {
+                console.error(
+                    'key-file is required; ' +
+                    'pass --key-file or set VAULT_KEY_FILE',
+                );
+                process.exit(1);
+            }
             const vaultOpts: VaultConfig = {
                 filename: argv['vault-file'] as string,
-                privateKeyFilename: argv['key-file'] as string,
+                privateKeyFilename: keyFile,
             };
-            const passphrase = argv.passphrase as string | undefined;
+            const passphrase = (argv.passphrase as string | undefined) ??
+                process.env['VAULT_PASSPHRASE'];
             if (passphrase !== undefined) {
                 vaultOpts.passphrase = passphrase;
             }
@@ -197,7 +215,7 @@ const cli = yargs(hideBin(process.argv))
         },
     )
 
-    // ── list ─────────────────────────────────────────────────────
+    // -- list ----------------------------------------------------─
     .command(
         'list <vault-file>',
         'List all secret keys in the vault',
