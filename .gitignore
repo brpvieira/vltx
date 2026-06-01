@@ -8,6 +8,10 @@ dist/
 # Coverage report
 coverage/
 
+# Temp test files
+
+tests/tmp
+
 # Environment variables (Secrets)
 .env
 .env.local
