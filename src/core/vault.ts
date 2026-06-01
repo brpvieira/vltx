@@ -100,9 +100,9 @@ export default class Vault implements Map<string, string> {
         return this;
     }
 
-    toJSON(): any {
+    toJSON(): { publicKey: string | null; secrets: Record<string, string> } {
         const publicKey = this.#publicKey ?
-        this.#publicKey.export(DEFAULT_PUBLIC_ENCODING) : null;
+        this.#publicKey.export(DEFAULT_PUBLIC_ENCODING) as string : null;
 
         const sortedEntries = [...this.entries()]
             .sort(([a], [b]) => a.localeCompare(b));
@@ -127,8 +127,8 @@ export default class Vault implements Map<string, string> {
         return this.#secrets.delete(key);
     }
 
-    forEach(callbackfn: (value: string, key: string, map: Map<string, string>) => void,
-        thisArg?: any): void {
+    forEach(callbackfn: (_value: string, _key: string, _map: Map<string, string>) => void,
+        thisArg?: unknown): void {
         this.#secrets.forEach((value, key) =>
         callbackfn.call(thisArg, value, key, this));
     }
@@ -168,7 +168,7 @@ export default class Vault implements Map<string, string> {
         return this.#secrets.getOrInsert(key, value);
     }
 
-    getOrInsertComputed(key: string, callbackfn: (key: string) => string): string {
+    getOrInsertComputed(key: string, callbackfn: (_key: string) => string): string {
         return this.#secrets.getOrInsertComputed(key, callbackfn);
     }
 
