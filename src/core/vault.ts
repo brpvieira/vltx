@@ -40,7 +40,7 @@ export default class Vault implements Map<string, string> {
 
     }
 
-    setPrivateKey(opts: PrivateKeyConfig): Vault {
+    setPrivateKey(opts: PrivateKeyConfig): this {
         const { privateKey, passphrase, privateKeyFilename } = opts;
         let keyStr: string = '';
         if (privateKey) {
@@ -60,7 +60,7 @@ export default class Vault implements Map<string, string> {
         return this;
     }
 
-    setPublicKey(key: KeyObject): Vault {
+    setPublicKey(key: KeyObject): this {
         this.#publicKey = key;
         return this;
     }
@@ -72,7 +72,7 @@ export default class Vault implements Map<string, string> {
     get canDecrypt(): boolean { return Boolean(this.#privateKey); }
 
 
-    read(filename?: string): Vault {
+    read(filename?: string): this {
         filename = filename || this.#filename;
         if (!filename) {
             throw new Error('No filename available');
@@ -94,7 +94,7 @@ export default class Vault implements Map<string, string> {
         return this;
     }
 
-    load(secrets: { [key: string]: string }) : Vault {
+    load(secrets: { [key: string]: string }) : this {
         this.#secrets.clear();
         Object.entries(secrets).forEach(([k, v]) => this.#secrets.set(k, v));
         return this;
