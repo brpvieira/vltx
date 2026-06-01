@@ -48,3 +48,12 @@ export function unstuffString(str: string): string {
 
     return base64Decode(parts[1] || '');
 }
+
+/**
+ * Type guard that narrows `error` to `NodeJS.ErrnoException`.
+ * @param error - The value to test.
+ * @returns `true` when `error` is an `Error` with a `code` property.
+ */
+export function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
+}

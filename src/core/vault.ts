@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { KeyObject, privateDecrypt, publicEncrypt } from 'node:crypto';
 import { parsePrivateKey, parsePublicKey, derivePublicKey,
     DEFAULT_PUBLIC_ENCODING, generateRSAKeyPair } from './rsa.js';
-import { stuffString, unstuffString } from './util.js';
+import { isNodeError, stuffString, unstuffString } from './util.js';
 
 /** Options for supplying a private key to a {@link Vault}. */
 export type PrivateKeyConfig = {
@@ -70,7 +70,7 @@ export default class Vault implements Map<string, string> {
     constructor(opts: VaultConfig) {
         if (opts.filename) {
             this.#filename = opts.filename;
-            this.read();
+            this.tryRead();
         }
 
         this.setPrivateKey(opts);
@@ -153,6 +153,29 @@ export default class Vault implements Map<string, string> {
 
         this.setPublicKey(parsePublicKey(publicKey));
         return this.load(secrets);
+    }
+
+    /**
+     * Reads a vault file like {@link read}, but silently ignores the
+     * file not existing (`ENOENT`). All other errors are re-thrown.
+     * @param filename - Path to the vault file. Falls back to the
+     *   filename supplied at construction.
+     * @returns `this` for chaining.
+     * @throws {Error} For any filesystem error other than `ENOENT`.
+     */
+    tryRead(filename?: string): this {
+        try {
+            this.read(filename);
+        } catch (err: unknown) {
+            if (isNodeError(err)) {
+                if (err.code !== 'ENOENT') {
+                    throw err;
+                }
+                return this;
+            }
+            throw err;
+        }
+        return this;
     }
 
     /**

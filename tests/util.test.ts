@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { assert, describe, expect, it } from 'vitest';
 import { base64Encode, base64Decode, stuffString,
-    unstuffString } from '../src/core/util.js';
+    unstuffString, isNodeError } from '../src/core/util.js';
 
 const testStr = 'The quick brown fox jumps over the lazy dog';
 const testStrInBase64 =
@@ -37,6 +38,33 @@ describe('stuffString', () => {
             s.add(stuffString(testStr));
         }
         expect(s.size).eq(10);
+    });
+});
+
+describe('isNodeError', () => {
+    it('returns true for a plain Error with a code property', () => {
+        const err = Object.assign(new Error('oops'), { code: 'ENOENT' });
+        expect(isNodeError(err)).toBe(true);
+    });
+
+    it('returns true for a real fs error', () => {
+        let caught: unknown;
+        try {
+            readFileSync('/nonexistent-path-that-cannot-exist');
+        } catch (e) {
+            caught = e;
+        }
+        expect(isNodeError(caught)).toBe(true);
+    });
+
+    it('returns false for a plain Error without a code property', () => {
+        expect(isNodeError(new Error('plain'))).toBe(false);
+    });
+
+    it('returns false for non-Error values', () => {
+        expect(isNodeError(null)).toBe(false);
+        expect(isNodeError('ENOENT')).toBe(false);
+        expect(isNodeError({ code: 'ENOENT' })).toBe(false);
     });
 });
 
