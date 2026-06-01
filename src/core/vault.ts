@@ -17,24 +17,32 @@ export type PrivateKeyConfig = {
 /**
  * Configuration options for constructing a {@link Vault}.
  * Supply `filename` to load an existing vault file on disk.
- * Supply key material via the inherited {@link PrivateKeyConfig} fields or `publicKey`
- * to enable encryption/decryption without loading a file.
+ * Supply key material via the inherited {@link PrivateKeyConfig}
+ * fields or `publicKey` to enable encryption/decryption without
+ * loading a file.
  */
 export type VaultConfig = {
     /** Path to the vault JSON file to read from and write to. */
     filename?: string,
-    /** Public key as a PEM string or `KeyObject`. Used only when no file is loaded. */
+    /**
+     * Public key as a PEM string or `KeyObject`. Used only when no
+     * file is loaded.
+     */
     publicKey?: string | KeyObject
 } & PrivateKeyConfig;
 
 /**
- * An encrypted key-value store that implements the `Map<string, string>` interface.
+ * An encrypted key-value store that implements the
+ * `Map<string, string>` interface.
  *
- * Secrets are stored as RSA-encrypted strings with added entropy (see {@link stuffString}).
- * Reading a value transparently decrypts it when a private key is available;
- * without a private key the raw (encrypted) value is returned instead.
+ * Secrets are stored as RSA-encrypted strings with added entropy
+ * (see {@link stuffString}).
+ * Reading a value transparently decrypts it when a private key is
+ * available; without a private key the raw (encrypted) value is
+ * returned instead.
  *
- * Vault files are persisted as JSON containing the public key and the encrypted secrets map.
+ * Vault files are persisted as JSON containing the public key and
+ * the encrypted secrets map.
  */
 export default class Vault implements Map<string, string> {
 
@@ -50,11 +58,14 @@ export default class Vault implements Map<string, string> {
     /**
      * Creates a new Vault instance.
      *
-     * If `opts.filename` is provided the vault file is read immediately, which
-     * also sets the public key embedded in that file.
-     * If a private key is provided (via `opts.privateKey` or `opts.privateKeyFilename`)
-     * the public key is derived automatically when not already loaded from a file.
-     * @param opts - Configuration options including key material and an optional file path.
+     * If `opts.filename` is provided the vault file is read
+     * immediately, which also sets the public key embedded in that
+     * file.
+     * If a private key is provided (via `opts.privateKey` or
+     * `opts.privateKeyFilename`) the public key is derived
+     * automatically when not already loaded from a file.
+     * @param opts - Configuration options including key material and
+     *   an optional file path.
      */
     constructor(opts: VaultConfig) {
         if (opts.filename) {
@@ -72,8 +83,9 @@ export default class Vault implements Map<string, string> {
 
     /**
      * Configures the vault's private key from the supplied options.
-     * Accepts a `KeyObject` directly, a PEM string, or a path to a PEM file.
-     * Has no effect when none of the key fields are provided.
+     * Accepts a `KeyObject` directly, a PEM string, or a path to a
+     * PEM file. Has no effect when none of the key fields are
+     * provided.
      * @param opts - Private key material and optional passphrase.
      * @returns `this` for chaining.
      */
@@ -110,16 +122,24 @@ export default class Vault implements Map<string, string> {
     /** The vault's public key, or `undefined` if none has been set. */
     get publicKey(): KeyObject | undefined { return this.#publicKey; }
 
-    /** `true` when a public key is available and the vault can encrypt new secrets. */
+    /**
+     * `true` when a public key is available and the vault can
+     * encrypt new secrets.
+     */
     get canEncrypt(): boolean { return Boolean(this.#publicKey); }
 
-    /** `true` when a private key is available and the vault can decrypt stored secrets. */
+    /**
+     * `true` when a private key is available and the vault can
+     * decrypt stored secrets.
+     */
     get canDecrypt(): boolean { return Boolean(this.#privateKey); }
 
 
     /**
-     * Reads and parses a vault JSON file, replacing the current public key and secrets.
-     * @param filename - Path to the vault file. Falls back to the filename supplied at construction.
+     * Reads and parses a vault JSON file, replacing the current
+     * public key and secrets.
+     * @param filename - Path to the vault file. Falls back to the
+     *   filename supplied at construction.
      * @returns `this` for chaining.
      * @throws {Error} If no filename is available.
      */
@@ -137,7 +157,8 @@ export default class Vault implements Map<string, string> {
 
     /**
      * Serializes the vault (public key + secrets) to a JSON file.
-     * @param filename - Destination path. Falls back to the filename supplied at construction.
+     * @param filename - Destination path. Falls back to the filename
+     *   supplied at construction.
      * @returns `this` for chaining.
      * @throws {Error} If no filename is available.
      */
@@ -152,9 +173,10 @@ export default class Vault implements Map<string, string> {
     }
 
     /**
-     * Replaces the in-memory secrets map with the provided key-value pairs.
-     * Existing entries are cleared before loading.
-     * @param secrets - Plain object whose entries are loaded as secrets.
+     * Replaces the in-memory secrets map with the provided key-value
+     * pairs. Existing entries are cleared before loading.
+     * @param secrets - Plain object whose entries are loaded as
+     *   secrets.
      * @returns `this` for chaining.
      */
     load(secrets: { [key: string]: string }) : this {
@@ -164,9 +186,11 @@ export default class Vault implements Map<string, string> {
     }
 
     /**
-     * Returns a plain-object representation of the vault suitable for JSON serialization.
-     * Secrets are sorted by key for deterministic output.
-     * @returns An object with a PEM `publicKey` string (or `null`) and the `secrets` map.
+     * Returns a plain-object representation of the vault suitable
+     * for JSON serialization. Secrets are sorted by key for
+     * deterministic output.
+     * @returns An object with a PEM `publicKey` string (or `null`)
+     *   and the `secrets` map.
      */
     toJSON(): { publicKey: string | null; secrets: Record<string, string> } {
         const publicKey = this.#publicKey ?
@@ -196,44 +220,48 @@ export default class Vault implements Map<string, string> {
     /**
      * Removes the secret with the given key.
      * @param key - The key to remove.
-     * @returns `true` if the key existed and was removed, `false` otherwise.
+     * @returns `true` if the key existed and was removed, `false`
+     *   otherwise.
      */
     delete(key: string): boolean {
         return this.#secrets.delete(key);
     }
 
     /**
-     * Executes `callbackfn` once for each key-value pair in insertion order.
+     * Executes `callbackfn` once for each key-value pair in
+     * insertion order.
      * @param callbackfn - Function invoked with `(value, key, map)`.
      * @param thisArg - Value used as `this` inside the callback.
      */
-    forEach(callbackfn: (_value: string, _key: string, _map: Map<string, string>) => void,
-        thisArg?: unknown): void {
+    forEach(callbackfn: (
+        _value: string, _key: string, _map: Map<string, string>,
+    ) => void, thisArg?: unknown): void {
         this.#secrets.forEach((value, key) =>
         callbackfn.call(thisArg, value, key, this));
     }
 
     /**
      * Returns the value for `key`.
-     * When a private key is loaded the stored (encrypted) value is decrypted before being returned.
-     * When no private key is available the raw stored string is returned as-is.
+     * When a private key is loaded the stored (encrypted) value is
+     * decrypted before being returned.
+     * When no private key is available the raw stored string is
+     * returned as-is.
      * @param key - The secret key to retrieve.
-     * @returns The (decrypted) value, or `undefined` if the key does not exist.
-     * @throws {Error} If decryption is attempted but the private key is unexpectedly absent.
+     * @returns The (decrypted) value, or `undefined` if the key
+     *   does not exist.
      */
     get(key: string): string | undefined {
         const raw = this.#secrets.get(key);
         if (!raw || !this.canDecrypt) { return raw; }
-        if (!this.#privateKey) {
-            throw new Error('Private key is required to decrypt secrets');
-        }
-        const decrypted = privateDecrypt(this.#privateKey, Buffer.from(raw, 'base64'))
+        const buf = Buffer.from(raw, 'base64');
+        const decrypted = privateDecrypt(this.#privateKey!, buf)
             .toString('utf8');
         return unstuffString(decrypted);
     }
 
     /**
-     * Returns `true` if a secret with the given key exists in the vault.
+     * Returns `true` if a secret with the given key exists in the
+     * vault.
      * @param key - The key to look up.
      */
     has(key: string): boolean {
@@ -254,26 +282,31 @@ export default class Vault implements Map<string, string> {
 
     /**
      * Inserts a new encrypted secret under `key`.
-     * The plaintext value is RSA-encrypted
-     * with the vault's public key before storage.
-     * Use {@link replace} to overwrite an existing key.
+     * The plaintext value is RSA-encrypted with the vault's public
+     * key before storage. Use {@link replace} to overwrite an
+     * existing key.
      * @param key - The secret key.
      * @param value - The plaintext value to encrypt and store.
      * @returns `this` for chaining.
      * @throws {Error} If no public key is available.
-     * @throws {Error} If `key` already exists — use {@link replace} to overwrite.
+     * @throws {Error} If `key` already exists — use {@link replace}
+     *   to overwrite.
      */
     set(key: string, value: string): this {
         if (this.has(key)) {
-            throw new Error('Attempting to replace existing entry through .set(), use .replace() instead');
+            throw new Error(
+                'Attempting to replace existing entry ' +
+                'through .set(), use .replace() instead',
+            );
         }
         return this.#doSet(key, value);
     }
 
     /**
      * Inserts or overwrites a secret under `key` (upsert).
-     * Behaves identically to {@link set} but does not throw when the key already exists,
-     * making it safe for both initial population and updates.
+     * Behaves identically to {@link set} but does not throw when
+     * the key already exists, making it safe for both initial
+     * population and updates.
      * @param key - The secret key.
      * @param value - The plaintext value to encrypt and store.
      * @returns `this` for chaining.
@@ -293,13 +326,14 @@ export default class Vault implements Map<string, string> {
         return this.#secrets.keys();
     }
 
-    /** Returns an iterator over the raw (encrypted) values in insertion order. */
+    /** Returns an iterator over raw (encrypted) values in insertion order. */
     values(): MapIterator<string> {
         return this.#secrets.values();
     }
 
     /**
-     * Returns the value for `key`, inserting `value` if the key does not yet exist.
+     * Returns the value for `key`, inserting `value` if the key
+     * does not yet exist.
      * @param key - The key to look up or insert.
      * @param value - Default value to insert when the key is absent.
      * @returns The existing or newly inserted value.
@@ -312,19 +346,26 @@ export default class Vault implements Map<string, string> {
     }
 
     /**
-     * Returns the value for `key`, inserting the result of `callbackfn(key)` if absent.
+     * Returns the value for `key`, inserting the result of
+     * `callbackfn(key)` if absent.
      * @param key - The key to look up or insert.
-     * @param callbackfn - Factory called with `key` to produce the default value.
+     * @param callbackfn - Factory called with `key` to produce the
+     *   default value.
      * @returns The existing or newly computed value.
      */
-    getOrInsertComputed(key: string, callbackfn: (_key: string) => string): string {
+    getOrInsertComputed(
+        key: string, callbackfn: (_key: string) => string,
+    ): string {
         if (!this.has(key)) {
             this.set(key, callbackfn(key));
         }
         return this.get(key) as string;
     }
 
-    /** Returns an iterator over `[key, value]` pairs, making `Vault` iterable with `for…of`. */
+    /**
+     * Returns an iterator over `[key, value]` pairs, making `Vault`
+     * iterable with `for…of`.
+     */
     [Symbol.iterator](): MapIterator<[string, string]> {
         return this.#secrets.entries();
     }

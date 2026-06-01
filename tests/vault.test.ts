@@ -332,24 +332,31 @@ describe('Map interface', () => {
         assert.deepEqual([...v.entries()], [...v]);
     });
 
-    it.skip('getOrInsert returns existing value without overwriting', () => {
+    it('[Symbol.toStringTag] returns "Vault"', () => {
         const v = new Vault({});
-        v.load({ k: 'original' });
-        expect(v.getOrInsert('k', 'new')).eq('original');
+        assert.equal(v[Symbol.toStringTag], 'Vault');
     });
 
-    it.skip('getOrInsert inserts and returns value when key is absent', () => {
-        const v = new Vault({});
+    it('getOrInsert returns the existing decrypted value without overwriting', () => {
+        const v = new Vault({ privateKey: privateKeyPem });
+        v.replace('k', 'original');
+        expect(v.getOrInsert('k', 'new')).eq('original');
+        expect(v.get('k')).eq('original');
+    });
+
+    it('getOrInsert inserts, encrypts and returns value when key is absent', () => {
+        const v = new Vault({ privateKey: privateKeyPem });
         expect(v.getOrInsert('k', 'default')).eq('default');
         assert(v.has('k'));
+        expect(v.get('k')).eq('default');
     });
 
-    it.skip('getOrInsertComputed calls the factory only when key is absent', () => {
-        const v = new Vault({});
+    it('getOrInsertComputed calls the factory only when key is absent', () => {
+        const v = new Vault({ privateKey: privateKeyPem });
         let calls = 0;
-        v.getOrInsertComputed('k', (key) => { calls++; return key + '-computed'; });
-        v.getOrInsertComputed('k', (key) => { calls++; return key + '-computed'; });
+        const factory = (key: string) => { calls++; return key + '-val'; };
+        expect(v.getOrInsertComputed('k', factory)).eq('k-val');
+        expect(v.getOrInsertComputed('k', factory)).eq('k-val');
         assert.equal(calls, 1);
-        expect(v.get('k')).eq('k-computed');
     });
 });
