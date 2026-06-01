@@ -1,7 +1,18 @@
 {
   "name": "vault",
   "version": "1.0.1",
-  "description": "",
+  "description": "simple secure secret storage",
+  "author": "Bernardo Vieira",
+  "keywords": [
+    "env",
+    "secrets"
+  ],
+  "homepage": "https://github.com/brpvieira/vault",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brpvieira/vault.git"
+  },
+  "license": "ISC",
   "engines": {
     "node": ">=16"
   },
@@ -36,9 +47,6 @@
     "prepare": "husky",
     "commit": "commit"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
