@@ -1,5 +1,5 @@
 import { assert, beforeAll, describe, expect, it } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import Vault from '../src/core/vault.js';
 import { generateRSAKeyPair, parsePrivateKey, derivePublicKey } from '../src/core/rsa.js';
@@ -88,6 +88,12 @@ describe('Vault.setPrivateKey', () => {
         v.setPrivateKey({});
         assert(!v.canDecrypt);
     });
+
+    it('is a no-op when privateKey is truthy but not a string or KeyObject', () => {
+        const v = new Vault({});
+        v.setPrivateKey({ privateKey: 42 as unknown as string });
+        assert(!v.canDecrypt);
+    });
 });
 
 describe('Vault.setPublicKey', () => {
@@ -161,6 +167,35 @@ describe('Vault.read / Vault.write', () => {
         const v = new Vault({ filename: vaultPath });
         v.replace('k', 'v');
         assert.doesNotThrow(() => v.write());
+    });
+
+    it('tryRead silently ignores a missing file and returns this', () => {
+        const v = new Vault({});
+        const result = v.tryRead(join(tmpDir, 'does-not-exist.vault.json'));
+        assert.strictEqual(result, v);
+        assert.equal(v.size, 0);
+    });
+
+    it('tryRead re-throws non-ENOENT node errors', () => {
+        const vaultPath = join(tmpDir, 'no-read-perms.vault.json');
+        new Vault({ privateKey: privateKeyPem }).write(vaultPath);
+        chmodSync(vaultPath, 0o000);
+        const v = new Vault({});
+        try {
+            let thrown: unknown;
+            try { v.tryRead(vaultPath); } catch (e) { thrown = e; }
+            assert(thrown instanceof Error && 'code' in thrown);
+            assert.equal((thrown as NodeJS.ErrnoException).code, 'EACCES');
+        } finally {
+            chmodSync(vaultPath, 0o644);
+        }
+    });
+
+    it('tryRead re-throws non-node errors (e.g. malformed JSON)', () => {
+        const vaultPath = join(tmpDir, 'bad-json.vault.json');
+        writeFileSync(vaultPath, '{ not valid json }');
+        const v = new Vault({});
+        assert.throws(() => v.tryRead(vaultPath), SyntaxError);
     });
 
     it('persists secrets sorted by key', () => {
