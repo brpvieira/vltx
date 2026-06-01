@@ -1,6 +1,6 @@
 import { assert, describe, it } from 'vitest';
 import { derivePublicKey, generateRSAKeyPair, parsePrivateKey,
-    parsePublicKey, DEFAULT_PUBLIC_ENCODING } from '../src/core/rsa.js';
+    parsePublicKey, DEFAULT_PUBLIC_ENCODING } from '../../src/core/rsa.js';
 
 describe('RSA', () => {
     it('generates a key pair without a password', () => {

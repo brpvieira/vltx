@@ -1,8 +1,8 @@
 import { assert, beforeAll, describe, expect, it } from 'vitest';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import Vault from '../src/core/vault.js';
-import { generateRSAKeyPair, parsePrivateKey, derivePublicKey } from '../src/core/rsa.js';
+import Vault from '../../src/core/vault.js';
+import { generateRSAKeyPair, parsePrivateKey, derivePublicKey } from '../../src/core/rsa.js';
 
 let privateKeyPem: string;
 let publicKeyPem: string;
@@ -12,7 +12,7 @@ beforeAll(() => {
     const kp = generateRSAKeyPair();
     privateKeyPem = kp.privateKey as string;
     publicKeyPem = kp.publicKey as string;
-    tmpDir = mkdtempSync(join(__dirname, 'tmp' , 'test-'));
+    tmpDir = mkdtempSync(join(__dirname, '../tmp' , 'test-'));
 });
 
 describe('Vault constructor', () => {

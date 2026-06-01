@@ -1,6 +1,6 @@
 import { assert, afterEach, beforeEach, describe, it } from 'vitest';
 import { join } from 'node:path';
-import getConfig from '../src/core/env.js';
+import getConfig from '../../src/core/env.js';
 
 const ENV_KEYS = ['VAULT_FILE', 'VAULT_KEY_FILE', 'VAULT_PASSPHRASE'] as const;
 type EnvSnapshot = Partial<Record<typeof ENV_KEYS[number], string | undefined>>;

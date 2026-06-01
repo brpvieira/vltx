@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { assert, describe, expect, it } from 'vitest';
 import { base64Encode, base64Decode, stuffString,
-    unstuffString, isNodeError } from '../src/core/util.js';
+    unstuffString, isNodeError } from '../../src/core/util.js';
 
 const testStr = 'The quick brown fox jumps over the lazy dog';
 const testStrInBase64 =
