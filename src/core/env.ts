@@ -35,7 +35,7 @@ export default function getConfig(overrides: VaultConfig = {}): VaultConfig {
 
     const cfg: VaultConfig = { filename, privateKeyFilename };
 
-    const passphrase = process.env['VAULT_PASSPHRASE'] || overrides.passphrase;
+    const passphrase = overrides.passphrase || process.env['VAULT_PASSPHRASE'];
     if (passphrase) {
         cfg.passphrase = passphrase;
     }
