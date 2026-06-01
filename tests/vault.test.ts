@@ -343,6 +343,81 @@ describe('Vault.init', () => {
     });
 });
 
+describe('Vault.open', () => {
+    let keyPath: string;
+    let vaultPath: string;
+
+    beforeAll(() => {
+        keyPath = join(tmpDir, 'open-priv.pem');
+        vaultPath = join(tmpDir, 'open.vault.json');
+        writeFileSync(keyPath, privateKeyPem);
+        const v = Vault.init(vaultPath, { privateKeyFilename: keyPath });
+        v.replace('secret', 'value');
+        v.write();
+    });
+
+    it('throws when the vault file does not exist', () => {
+        assert.throws(
+            () => Vault.open(join(tmpDir, 'missing.vault.json'), { privateKeyFilename: keyPath }),
+            /does not exist/,
+        );
+    });
+
+    it('throws when privateKeyFilename is not provided', () => {
+        assert.throws(
+            () => Vault.open(vaultPath, {}),
+            /private key file name is required/,
+        );
+    });
+
+    it('returns a vault with canDecrypt', () => {
+        const v = Vault.open(vaultPath, { privateKeyFilename: keyPath });
+        assert(v.canDecrypt);
+    });
+
+    it('returned vault loads secrets from the file', () => {
+        const v = Vault.open(vaultPath, { privateKeyFilename: keyPath });
+        assert(v.has('secret'));
+        expect(v.get('secret')).eq('value');
+    });
+
+    it('returned vault has canEncrypt', () => {
+        const v = Vault.open(vaultPath, { privateKeyFilename: keyPath });
+        assert(v.canEncrypt);
+    });
+
+    it('throws when private key cannot decrypt (wrong key)', () => {
+        const wrongKeyPath = join(tmpDir, 'open-wrong.pem');
+        const { privateKey: otherKey } = generateRSAKeyPair();
+        writeFileSync(wrongKeyPath, otherKey as string);
+        const v = Vault.open(vaultPath, { privateKeyFilename: wrongKeyPath });
+        assert.throws(() => v.get('secret'));
+    });
+
+    it('throws when the key file is empty (canDecrypt is false)', () => {
+        const emptyKeyPath = join(tmpDir, 'open-empty.pem');
+        writeFileSync(emptyKeyPath, '');
+        assert.throws(
+            () => Vault.open(vaultPath, { privateKeyFilename: emptyKeyPath }),
+            /check private key/,
+        );
+    });
+
+    it('opens a vault protected by a passphrase-encrypted private key', () => {
+        const passphrase = 'hunter2';
+        const encKeyPath = join(tmpDir, 'open-enc.pem');
+        const encVaultPath = join(tmpDir, 'open-enc.vault.json');
+        const { privateKey: encPem } = generateRSAKeyPair(passphrase);
+        writeFileSync(encKeyPath, encPem as string);
+        Vault.init(encVaultPath, { privateKeyFilename: encKeyPath, passphrase });
+        const v = Vault.open(encVaultPath, {
+            privateKeyFilename: encKeyPath,
+            passphrase,
+        });
+        assert(v.canDecrypt);
+    });
+});
+
 describe('Map interface', () => {
     it('has returns true for loaded keys', () => {
         const v = new Vault({});

@@ -429,11 +429,54 @@ export default class Vault implements Map<string, string> {
             writeFileSync(privateKeyFilename, privateKey as string);
         }
 
-        // Build without filename so the constructor does not attempt
-        // to read a file that does not yet exist.
-        const v = new Vault(privateKeyOpts);
-        v.#filename = filename;
+        const v = new Vault({ ...privateKeyOpts, filename });
         v.write();
+        return v;
+    }
+
+    /**
+     * Opens an existing vault file for reading and writing.
+     *
+     * Reads `filename`, loads the embedded public key and secrets,
+     * then unlocks the vault with the private key at
+     * `privateKeyOpts.privateKeyFilename`.
+     *
+     * @param filename - Path to an existing vault JSON file.
+     * @param privateKeyOpts - Key material. `privateKeyFilename`
+     *   is required; `passphrase` is forwarded when supplied.
+     * @returns A configured {@link Vault} backed by `filename`.
+     * @throws {Error} If `filename` does not exist.
+     * @throws {Error} If `privateKeyFilename` is not provided.
+     * @throws {Error} If the private key cannot decrypt the vault.
+     */
+    static open(
+        filename: string, privateKeyOpts: PrivateKeyConfig,
+    ): Vault {
+        if (!existsSync(filename)) {
+            throw new Error(`Unable to open safe. ${filename} does not exist`);
+        }
+
+        const { privateKeyFilename, passphrase } = privateKeyOpts;
+
+        if (!privateKeyFilename) {
+            throw new Error('A private key file name is required to open the \
+vault');
+        }
+
+        const cfg: VaultConfig = {
+            filename,
+            privateKeyFilename
+        };
+
+        if (passphrase) {
+            cfg.passphrase = passphrase;
+        }
+
+        const v = new Vault(cfg);
+        if (!v.canDecrypt) {
+            throw new Error('Unable to open safe, check private key and \
+passphrase');
+        }
         return v;
     }
 }
