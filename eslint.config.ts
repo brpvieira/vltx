@@ -17,7 +17,10 @@ export default defineConfig([
         plugins: { vitest, js },
         extends: ['js/recommended'],
         languageOptions: {
-            globals: { ...vitest.environments.env.globals },
+            globals: {
+                ...globals.node,
+                ...vitest.environments.env.globals
+            },
         }
     },
     tseslint.configs.recommended,
