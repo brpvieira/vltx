@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import type { VaultConfig } from './vault.js';
 import { join } from 'node:path';
 
-dotenv.config(); // populate process.env from .env when present
+dotenv.config({ quiet: true });
 
 type ConfigDefaults = {
     filename: string,
