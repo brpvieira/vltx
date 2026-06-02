@@ -249,11 +249,12 @@ declare function vault(strings: TemplateStringsArray): string;
 
 The `Vault` class exposes three static factory methods and two key-lifecycle
 instance methods. Using a factory method is the recommended approach — each
-one validates its preconditions and makes the intent explicit.
+one validates its preconditions and makes the intent explicit. Full method
+signatures and types are documented in [API.md](API.md).
 
 ---
 
-#### `Vault.openForReading(opts)` — decrypt secrets
+#### [`Vault.openForReading(opts)`](API.md#module_core/vault--module.exports.openForReading) — decrypt secrets
 
 Opens an existing vault file and loads the private key, enabling decryption.
 Throws if the file does not exist, no private key is supplied, or the key
@@ -287,7 +288,7 @@ const dbUrl = v.get('DB_URL');
 
 ---
 
-#### `Vault.openForWriting(opts)` — add or replace secrets
+#### [`Vault.openForWriting(opts)`](API.md#module_core/vault--module.exports.openForWriting) — add or replace secrets
 
 Opens an existing vault file without loading a private key. The public key
 embedded in the file is loaded automatically, enabling encryption.
@@ -315,7 +316,7 @@ v.write();
 
 ---
 
-#### `Vault.open(opts)` — full control
+#### [`Vault.open(opts)`](API.md#module_core/vault--module.exports.open) — full control
 
 Generic opener. Passes the full `VaultConfig` directly to the constructor.
 Only throws if `opts.filename` is provided but does not exist. No other
@@ -348,7 +349,7 @@ const v = Vault.open({
 
 ---
 
-#### `lock()` and `unlock()` — key lifecycle
+#### [`lock()`](API.md#module_core/vault--module.exports+lock) and [`unlock()`](API.md#module_core/vault--module.exports+unlock) — key lifecycle
 
 `lock()` discards the private key, leaving the vault in encrypt-only mode.
 `unlock(opts)` loads a new private key. Both return `this` for chaining.
