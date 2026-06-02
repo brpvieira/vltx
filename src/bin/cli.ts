@@ -1,11 +1,8 @@
 #!/usr/bin/env node
-import dotenv from 'dotenv';
 import yargs, { type Argv } from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import Vault, { type VaultConfig } from '../core/vault.js';
 import getConfig from '../core/env.js';
-
-dotenv.config(); // populate process.env from .env when present
 
 /**
  * Prints all secret keys in `v` as a formatted, sorted list.
