@@ -6,7 +6,8 @@ import { initHandler, addHandler, listHandler, getHandler,
     replaceHandler, deleteHandler } from './commands.js';
 
 function addVaultFile(y: Argv): Argv {
-    return y.positional('vault-file', {
+    return y.option('vault-file', {
+        alias: 'f',
         type: 'string',
         describe: 'Path to the vault JSON file to create' +
             ' [$VAULT_FILE]',
@@ -53,7 +54,7 @@ const cli = yargs(hideBin(process.argv))
 
     // -- init ----------------------------------------------------─
     .command(
-        'init [vault-file]',
+        'init',
         'Create a new vault, generating a key pair if needed',
         (y: Argv) => {
             addVaultFile(y)
@@ -65,7 +66,7 @@ const cli = yargs(hideBin(process.argv))
 
     // -- add ------------------------------------------------------
     .command(
-        'add [vault-file] <key> <value>',
+        'add <key> <value>',
         'Encrypt and add a new secret (fails if key exists)',
         (y: Argv) => {
             addVaultFile(y);
@@ -78,7 +79,7 @@ const cli = yargs(hideBin(process.argv))
 
     // -- delete --------------------------------------------------─
     .command(
-        'delete [vault-file] <key>',
+        'delete <key>',
         'Remove a secret from the vault',
         (y: Argv) => {
             addVaultFile(y);
@@ -90,7 +91,7 @@ const cli = yargs(hideBin(process.argv))
 
     // -- replace --------------------------------------------------
     .command(
-        'replace [vault-file] <key> <value>',
+        'replace <key> <value>',
         'Encrypt and insert or overwrite a secret',
         (y: Argv) => {
             addVaultFile(y);
@@ -103,36 +104,20 @@ const cli = yargs(hideBin(process.argv))
 
     // -- get ------------------------------------------------------
     .command(
-        'get [vault-file] <key>',
+        'get <key>',
         'Decrypt and print a secret value',
-        (y: Argv) => y
-            .positional('vault-file', {
-                type: 'string',
-                describe: 'Path to the vault JSON file [$VAULT_FILE]',
-            })
-            .positional('key', {
-                type: 'string',
-                demandOption: true,
-                describe: 'Secret key name to retrieve',
-            })
-            .option('key-file', {
-                alias: 'k',
-                type: 'string',
-                describe: 'Path to the private key file' +
-                    ' [$VAULT_KEY_FILE]',
-            })
-            .option('passphrase', {
-                alias: 'p',
-                type: 'string',
-                describe: 'Passphrase for the private key' +
-                    ' [$VAULT_PASSPHRASE]',
-            }),
+        (y: Argv) => {
+            addVaultFile(y);
+            addKey(y);
+            addKeyFileAndPassphrase(y);
+            return y;
+        },
         getHandler,
     )
 
     // -- list ----------------------------------------------------─
     .command(
-        'list [vault-file]',
+        'list',
         'List all secret keys in the vault',
         addVaultFile,
         listHandler

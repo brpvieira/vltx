@@ -53,7 +53,7 @@ echo ".vault.rsa" >> .gitignore
 To use custom paths:
 
 ```sh
-npx vault-cli init secrets/production.vault --key-file ~/.keys/prod.rsa
+npx vault-cli init --vault-file secrets/production.vault --key-file ~/.keys/prod.rsa
 ```
 
 Protect the private key with a passphrase:
