@@ -47,6 +47,7 @@ export type VaultConfig = {
 export default class Vault implements Map<string, string> {
 
     #filename?: string;
+    get filename(): string { return  this.#filename as string; }
 
     #publicKey?: KeyObject;
     #privateKey?: KeyObject;
