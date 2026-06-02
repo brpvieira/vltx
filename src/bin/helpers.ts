@@ -2,7 +2,9 @@ import Vault from '../core/vault.js';
 
 /**
  * Prints all secret keys in `v` as a formatted, sorted list.
+ *
  * @param v - The vault whose keys to display.
+ * @returns {void}
  */
 export function listKeys(v: Vault): void {
     const keys = [...v.keys()].sort();
