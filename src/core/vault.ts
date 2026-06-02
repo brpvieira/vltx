@@ -135,6 +135,32 @@ export default class Vault implements Map<string, string> {
      */
     get canDecrypt(): boolean { return Boolean(this.#privateKey); }
 
+    /**
+     * Removes the private key, leaving the vault in encrypt-only
+     * mode. Useful for limiting the window during which key
+     * material is held in memory.
+     * @returns `this` for chaining.
+     */
+    lock(): this {
+        this.#privateKey = undefined;
+        return this;
+    }
+
+    /**
+     * Loads a private key into the vault, enabling decryption.
+     * When no public key is already loaded, it is derived
+     * automatically from the private key. Has no effect when no
+     * key fields in `opts` are set.
+     * @param opts - Private key material and optional passphrase.
+     * @returns `this` for chaining.
+     */
+    unlock(opts: PrivateKeyConfig): this {
+        this.setPrivateKey(opts);
+        if (this.#privateKey && !this.#publicKey) {
+            this.setPublicKey(derivePublicKey(this.#privateKey));
+        }
+        return this;
+    }
 
     /**
      * Reads and parses a vault JSON file, replacing the current

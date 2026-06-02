@@ -245,17 +245,28 @@ declare function vault(strings: TemplateStringsArray): string;
 
 ---
 
-### Private key configuration
+### Vault class API
 
-By default the module resolves the private key path from `VAULT_KEY_FILE` (or `.vault.rsa`). You can also pass it directly through `Vault.open` for full control:
+The `Vault` class exposes three static factory methods and two key-lifecycle
+instance methods. Using a factory method is the recommended approach — each
+one validates its preconditions and makes the intent explicit.
+
+---
+
+#### `Vault.openForReading(opts)` — decrypt secrets
+
+Opens an existing vault file and loads the private key, enabling decryption.
+Throws if the file does not exist, no private key is supplied, or the key
+cannot decrypt the vault.
 
 **ESM**
 ```js
 import { Vault } from 'vault';
 
-const v = Vault.open('secrets/production.vault', {
+const v = Vault.openForReading({
+    filename: 'secrets/production.vault',
     privateKeyFilename: '/run/secrets/vault.rsa',
-    passphrase: process.env.VAULT_PASSPHRASE,
+    passphrase: process.env.VAULT_PASSPHRASE, // optional
 });
 
 const dbUrl = v.get('DB_URL');
@@ -265,12 +276,132 @@ const dbUrl = v.get('DB_URL');
 ```js
 const { Vault } = require('vault');
 
-const v = Vault.open('secrets/production.vault', {
+const v = Vault.openForReading({
+    filename: 'secrets/production.vault',
     privateKeyFilename: '/run/secrets/vault.rsa',
     passphrase: process.env.VAULT_PASSPHRASE,
 });
 
 const dbUrl = v.get('DB_URL');
+```
+
+---
+
+#### `Vault.openForWriting(opts)` — add or replace secrets
+
+Opens an existing vault file without loading a private key. The public key
+embedded in the file is loaded automatically, enabling encryption.
+No decryption capability is available. Useful in environments that only need
+to write secrets (e.g., a CI pipeline that rotates credentials).
+
+**ESM**
+```js
+import { Vault } from 'vault';
+
+const v = Vault.openForWriting({ filename: 'secrets/production.vault' });
+v.set('NEW_SECRET', 'super-secret-value');
+v.replace('API_KEY', 'sk-live-newkey456');
+v.write();
+```
+
+**CommonJS**
+```js
+const { Vault } = require('vault');
+
+const v = Vault.openForWriting({ filename: 'secrets/production.vault' });
+v.set('NEW_SECRET', 'super-secret-value');
+v.write();
+```
+
+---
+
+#### `Vault.open(opts)` — full control
+
+Generic opener. Passes the full `VaultConfig` directly to the constructor.
+Only throws if `opts.filename` is provided but does not exist. No other
+validation is performed — `canEncrypt` and `canDecrypt` reflect whatever
+key material `opts` contains.
+
+**ESM**
+```js
+import { Vault } from 'vault';
+
+// Read and write in one call
+const v = Vault.open({
+    filename: 'secrets/production.vault',
+    privateKeyFilename: '/run/secrets/vault.rsa',
+});
+
+// Or open with no file at all (useful for in-memory vaults)
+const mem = Vault.open({ publicKey: myPublicKeyPem });
+```
+
+**CommonJS**
+```js
+const { Vault } = require('vault');
+
+const v = Vault.open({
+    filename: 'secrets/production.vault',
+    privateKeyFilename: '/run/secrets/vault.rsa',
+});
+```
+
+---
+
+#### `lock()` and `unlock()` — key lifecycle
+
+`lock()` discards the private key, leaving the vault in encrypt-only mode.
+`unlock(opts)` loads a new private key. Both return `this` for chaining.
+Use them to limit the window during which decryption key material is held in
+memory.
+
+**ESM**
+```js
+import { Vault } from 'vault';
+
+const v = Vault.openForReading({
+    filename: 'secrets/production.vault',
+    privateKeyFilename: '/run/secrets/vault.rsa',
+});
+
+const dbUrl = v.get('DB_URL'); // decrypt while key is loaded
+
+v.lock(); // discard the private key
+// v.canDecrypt === false — safe to pass around read-only
+
+// Restore decryption when needed
+v.unlock({ privateKeyFilename: '/run/secrets/vault.rsa' });
+// v.canDecrypt === true again
+```
+
+**CommonJS**
+```js
+const { Vault } = require('vault');
+
+const v = Vault.openForReading({
+    filename: 'secrets/production.vault',
+    privateKeyFilename: '/run/secrets/vault.rsa',
+});
+
+v.get('DB_URL');
+v.lock();
+v.unlock({ privateKeyFilename: '/run/secrets/vault.rsa' });
+```
+
+---
+
+#### Direct instantiation (advanced)
+
+`new Vault(opts)` is equivalent to `Vault.open()` but skips the
+file-existence check. **Using a factory method is the recommended approach.**
+
+```js
+import { Vault } from 'vault';
+
+const v = new Vault({
+    filename: 'secrets/production.vault',
+    privateKeyFilename: '/run/secrets/vault.rsa',
+});
 ```
 
 ---

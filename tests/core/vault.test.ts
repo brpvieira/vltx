@@ -524,6 +524,104 @@ describe('Vault.openForWriting', () => {
     });
 });
 
+describe('lock and unlock', () => {
+    let keyPath: string;
+    let vaultPath: string;
+
+    beforeAll(() => {
+        keyPath = join(tmpDir, 'lock-priv.pem');
+        vaultPath = join(tmpDir, 'lock.vault.json');
+        writeFileSync(keyPath, privateKeyPem);
+        const v = Vault.init(vaultPath, { privateKeyFilename: keyPath });
+        v.replace('secret', 'value');
+        v.write();
+    });
+
+    it('lock removes the private key', () => {
+        const v = Vault.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
+        v.lock();
+        assert(!v.canDecrypt);
+    });
+
+    it('lock does not affect canEncrypt', () => {
+        const v = Vault.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
+        v.lock();
+        assert(v.canEncrypt);
+    });
+
+    it('lock does not affect stored secrets', () => {
+        const v = Vault.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
+        v.lock();
+        assert(v.has('secret'));
+    });
+
+    it('lock returns this for chaining', () => {
+        const v = Vault.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
+        assert.strictEqual(v.lock(), v);
+    });
+
+    it('lock on a vault without a private key is a no-op', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        v.lock();
+        assert(!v.canDecrypt);
+    });
+
+    it('unlock loads a private key from a file', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        v.unlock({ privateKeyFilename: keyPath });
+        assert(v.canDecrypt);
+    });
+
+    it('unlock loads a private key from a PEM string', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        v.unlock({ privateKey: privateKeyPem });
+        assert(v.canDecrypt);
+    });
+
+    it('unlock loads a private key from a KeyObject', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        v.unlock({ privateKey: parsePrivateKey(privateKeyPem) });
+        assert(v.canDecrypt);
+    });
+
+    it('unlock enables decryption of existing secrets', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        v.unlock({ privateKeyFilename: keyPath });
+        expect(v.get('secret')).eq('value');
+    });
+
+    it('unlock returns this for chaining', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        assert.strictEqual(v.unlock({ privateKeyFilename: keyPath }), v);
+    });
+
+    it('unlock with empty opts is a no-op', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        v.unlock({});
+        assert(!v.canDecrypt);
+    });
+
+    it('lock and unlock can be chained', () => {
+        const v = Vault.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
+        v.lock().unlock({ privateKeyFilename: keyPath });
+        assert(v.canDecrypt);
+    });
+
+    it('unlock derives the public key when none is loaded', () => {
+        const v = new Vault({});
+        v.unlock({ privateKey: privateKeyPem });
+        assert(v.canEncrypt);
+        assert(v.canDecrypt);
+    });
+
+    it('unlock does not overwrite an existing public key', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        const original = v.publicKey;
+        v.unlock({ privateKeyFilename: keyPath });
+        assert.strictEqual(v.publicKey, original);
+    });
+});
+
 describe('Map interface', () => {
     it('has returns true for loaded keys', () => {
         const v = new Vault({});
