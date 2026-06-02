@@ -9,7 +9,8 @@ type VaultModuleConfig = {
     inject?: boolean
 };
 
-function vaultTag(vault: Vault, strings: Array<string>, ...values: unknown[]): string {
+function vaultTag(vault: Vault, strings: TemplateStringsArray,
+     ...values: unknown[]): string {
     if(values?.length > 0)  {
         throw new Error('Interpolation in not allowed.');
     }
@@ -44,6 +45,7 @@ export default function setup({ filename, alias = 'vault', inject = true }:
     } else {
         const cfg = resolveConfig(filename);
         v = new Vault(cfg);
+        vaults.set(alias, v);
     }
 
     if (inject && !(alias in global)) {

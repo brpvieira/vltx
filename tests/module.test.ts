@@ -1,0 +1,125 @@
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import setup from '../src/index.js';
+import Vault from '../src/core/vault.js';
+import { generateRSAKeyPair } from '../src/core/rsa.js';
+
+vi.mock('../src/core/env.js', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../src/core/env.js')>();
+    return { default: vi.fn(actual.default) };
+});
+
+const tmpDir = mkdtempSync(join(__dirname, 'tmp', 'module-'));
+
+let publicKeyPem: string;
+
+beforeAll(() => {
+    ({ publicKey: publicKeyPem } = generateRSAKeyPair() as { publicKey: string; privateKey: string });
+});
+
+let counter = 0;
+const nextAlias = () => `_test_alias_${counter++}`;
+const injected: string[] = [];
+
+afterEach(() => {
+    for (const a of injected.splice(0)) {
+        delete (global as Record<string, unknown>)[a];
+    }
+    vi.clearAllMocks();
+});
+
+function makeVaultFile(secrets: Record<string, string>): string {
+    const path = join(tmpDir, `vault-${Date.now()}.json`);
+    writeFileSync(path, JSON.stringify({ publicKey: publicKeyPem, secrets }));
+    return path;
+}
+
+function getTag(alias: string) {
+    return (global as Record<string, unknown>)[alias] as
+        (_strings: TemplateStringsArray, ..._values: unknown[]) => string;
+}
+
+describe('setup', () => {
+    it('returns a Vault instance', () => {
+        const alias = nextAlias();
+        injected.push(alias);
+        expect(setup({ alias })).toBeInstanceOf(Vault);
+    });
+
+    it('returns the same cached instance on repeated calls', () => {
+        const alias = nextAlias();
+        injected.push(alias);
+        const v1 = setup({ alias, inject: false });
+        const v2 = setup({ alias, inject: false });
+        expect(v1).toBe(v2);
+    });
+
+    it('injects a tag function on global by default', () => {
+        const alias = nextAlias();
+        injected.push(alias);
+        setup({ alias });
+        expect(typeof (global as Record<string, unknown>)[alias]).toBe('function');
+    });
+
+    it('does not inject when inject is false', () => {
+        const alias = nextAlias();
+        setup({ alias, inject: false });
+        expect((global as Record<string, unknown>)[alias]).toBeUndefined();
+    });
+
+    it('does not overwrite an existing global', () => {
+        const alias = nextAlias();
+        const original = {};
+        (global as Record<string, unknown>)[alias] = original;
+        injected.push(alias);
+        setup({ alias });
+        expect((global as Record<string, unknown>)[alias]).toBe(original);
+    });
+
+    it('loads the vault from the provided filename', () => {
+        const vaultPath = makeVaultFile({ KEY: 'VALUE' });
+        const alias = nextAlias();
+        injected.push(alias);
+        expect(setup({ alias, filename: vaultPath }).has('KEY')).toBe(true);
+    });
+
+    it('creates a Vault with empty config when getConfig returns no filename', async () => {
+        const mod = await import('../src/core/env.js');
+        vi.mocked(mod.default).mockReturnValueOnce({});
+        const alias = nextAlias();
+        injected.push(alias);
+        expect(setup({ alias, inject: false })).toBeInstanceOf(Vault);
+    });
+});
+
+describe('tag function', () => {
+    it('returns the secret value for an existing key', () => {
+        const vaultPath = makeVaultFile({ SECRET: 'hello' });
+        const alias = nextAlias();
+        injected.push(alias);
+        setup({ alias, filename: vaultPath });
+        expect(getTag(alias)`SECRET`).toBe('hello');
+    });
+
+    it('returns empty string for a missing key', () => {
+        const alias = nextAlias();
+        injected.push(alias);
+        setup({ alias });
+        expect(getTag(alias)`MISSING`).toBe('');
+    });
+
+    it('returns empty string when the key is empty', () => {
+        const alias = nextAlias();
+        injected.push(alias);
+        setup({ alias });
+        expect(getTag(alias)``).toBe('');
+    });
+
+    it('throws when interpolation values are passed', () => {
+        const alias = nextAlias();
+        injected.push(alias);
+        setup({ alias });
+        expect(() => getTag(alias)`before${'value'}after`).toThrow('Interpolation');
+    });
+});
