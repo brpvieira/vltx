@@ -23,6 +23,11 @@ describe('Vault constructor', () => {
         assert.equal(v.size, 0);
     });
 
+    it('exposes filename via the getter', () => {
+        const v = new Vault({ filename: join(tmpDir, 'getter-test.vault.json') });
+        assert.equal(v.filename, join(tmpDir, 'getter-test.vault.json'));
+    });
+
     it('accepts a private key PEM string and derives the public key', () => {
         const v = new Vault({ privateKey: privateKeyPem });
         assert(v.canDecrypt);
