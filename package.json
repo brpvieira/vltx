@@ -7,7 +7,7 @@
     "env",
     "secrets"
   ],
-  "homepage": "https://github.com/brpvieira/vault",
+  "homepage": "https://github.com/brpvieira/vault?tab=readme-ov-file",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/brpvieira/vault.git"
