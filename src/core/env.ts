@@ -1,3 +1,11 @@
+/**
+ * Environment-based vault configuration resolver.
+ *
+ * Merges caller overrides with `VAULT_FILE`, `VAULT_KEY_FILE`, and
+ * `VAULT_PASSPHRASE` environment variables, falling back to defaults
+ * of `.vault` and `.vault.rsa` in the current working directory.
+ * @module
+ */
 import dotenv from 'dotenv';
 import type { VaultConfig } from './vault.js';
 import { join } from 'node:path';

@@ -28,7 +28,8 @@
     "noUncheckedSideEffectImports": true,
 
     "moduleDetection": "force",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "removeComments": false
   },
   "include": ["src/**/*"]
 }

@@ -1,3 +1,15 @@
+/**
+ * Core {@link Vault} class and associated configuration types.
+ *
+ * A `Vault` is an RSA-encrypted key-value store backed by a JSON file.
+ * Values are encrypted with the embedded public key and decrypted on
+ * demand when a private key is supplied. The class implements the
+ * `Map<string, string>` interface and exposes static factory methods
+ * ({@link Vault.open}, {@link Vault.openForReading},
+ * {@link Vault.openForWriting}) plus instance-level key lifecycle
+ * helpers ({@link Vault#lock}, {@link Vault#unlock}).
+ * @module
+ */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { KeyObject, privateDecrypt, publicEncrypt } from 'node:crypto';
 import { parsePrivateKey, parsePublicKey, derivePublicKey,
@@ -50,7 +62,7 @@ export default class Vault implements Map<string, string> {
     get filename(): string { return  this.#filename as string; }
 
     #publicKey?: KeyObject;
-    #privateKey?: KeyObject;
+    #privateKey?: KeyObject | undefined;
 
 
 

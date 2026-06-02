@@ -1,3 +1,11 @@
+/**
+ * RSA key-pair generation and parsing helpers.
+ *
+ * Wraps the Node.js `crypto` module to generate 4096-bit RSA key pairs
+ * (PKCS#8 private key, SPKI public key, both in PEM format) and to
+ * parse PEM-encoded keys into `KeyObject` instances.
+ * @module
+ */
 import { generateKeyPairSync, createPublicKey,
     createPrivateKey } from 'node:crypto';
 import type { KeyPairExportResult, RSAKeyPairOptions,

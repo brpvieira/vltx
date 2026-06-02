@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Docs temp folder
+dist-docs/*
+
 # Coverage report
 coverage/
 

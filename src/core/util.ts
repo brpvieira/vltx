@@ -1,3 +1,11 @@
+/**
+ * String encoding and error-narrowing utilities.
+ *
+ * Provides base64 helpers, a salt-and-nonce stuffing layer used to
+ * ensure each RSA encryption of the same plaintext produces a unique
+ * ciphertext, and a Node.js `ErrnoException` type guard.
+ * @module
+ */
 import { randomBytes } from 'node:crypto';
 
 /**
