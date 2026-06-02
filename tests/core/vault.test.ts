@@ -353,6 +353,50 @@ describe('Vault.open', () => {
     let vaultPath: string;
 
     beforeAll(() => {
+        keyPath = join(tmpDir, 'generic-open-priv.pem');
+        vaultPath = join(tmpDir, 'generic-open.vault.json');
+        writeFileSync(keyPath, privateKeyPem);
+        const v = Vault.init(vaultPath, { privateKeyFilename: keyPath });
+        v.replace('k', 'v');
+        v.write();
+    });
+
+    it('throws when filename is provided but does not exist', () => {
+        assert.throws(
+            () => Vault.open({ filename: join(tmpDir, 'missing.vault.json') }),
+            /does not exist/,
+        );
+    });
+
+    it('does not throw when filename is not provided', () => {
+        assert.doesNotThrow(() => Vault.open({}));
+    });
+
+    it('does not throw when filename exists', () => {
+        assert.doesNotThrow(() => Vault.open({ filename: vaultPath }));
+    });
+
+    it('returns a vault with canEncrypt when the file contains a public key', () => {
+        const v = Vault.open({ filename: vaultPath });
+        assert(v.canEncrypt);
+    });
+
+    it('returns a vault with canDecrypt when a private key is supplied', () => {
+        const v = Vault.open({ filename: vaultPath, privateKeyFilename: keyPath });
+        assert(v.canDecrypt);
+    });
+
+    it('returns a vault without canDecrypt when no private key is supplied', () => {
+        const v = Vault.open({ filename: vaultPath });
+        assert(!v.canDecrypt);
+    });
+});
+
+describe('Vault.openForReading', () => {
+    let keyPath: string;
+    let vaultPath: string;
+
+    beforeAll(() => {
         keyPath = join(tmpDir, 'open-priv.pem');
         vaultPath = join(tmpDir, 'open.vault.json');
         writeFileSync(keyPath, privateKeyPem);
@@ -361,33 +405,40 @@ describe('Vault.open', () => {
         v.write();
     });
 
+    it('throws when filename is not provided', () => {
+        assert.throws(
+            () => Vault.openForReading({ privateKeyFilename: keyPath }),
+            /filename is required/,
+        );
+    });
+
     it('throws when the vault file does not exist', () => {
         assert.throws(
-            () => Vault.open(join(tmpDir, 'missing.vault.json'), { privateKeyFilename: keyPath }),
+            () => Vault.openForReading({ filename: join(tmpDir, 'missing.vault.json'), privateKeyFilename: keyPath }),
             /does not exist/,
         );
     });
 
-    it('throws when privateKeyFilename is not provided', () => {
+    it('throws when no private key is provided', () => {
         assert.throws(
-            () => Vault.open(vaultPath, {}),
-            /private key file name is required/,
+            () => Vault.openForReading({ filename: vaultPath }),
+            /private key is required/,
         );
     });
 
     it('returns a vault with canDecrypt', () => {
-        const v = Vault.open(vaultPath, { privateKeyFilename: keyPath });
+        const v = Vault.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
         assert(v.canDecrypt);
     });
 
     it('returned vault loads secrets from the file', () => {
-        const v = Vault.open(vaultPath, { privateKeyFilename: keyPath });
+        const v = Vault.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
         assert(v.has('secret'));
         expect(v.get('secret')).eq('value');
     });
 
     it('returned vault has canEncrypt', () => {
-        const v = Vault.open(vaultPath, { privateKeyFilename: keyPath });
+        const v = Vault.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
         assert(v.canEncrypt);
     });
 
@@ -395,7 +446,7 @@ describe('Vault.open', () => {
         const wrongKeyPath = join(tmpDir, 'open-wrong.pem');
         const { privateKey: otherKey } = generateRSAKeyPair();
         writeFileSync(wrongKeyPath, otherKey as string);
-        const v = Vault.open(vaultPath, { privateKeyFilename: wrongKeyPath });
+        const v = Vault.openForReading({ filename: vaultPath, privateKeyFilename: wrongKeyPath });
         assert.throws(() => v.get('secret'));
     });
 
@@ -403,7 +454,7 @@ describe('Vault.open', () => {
         const emptyKeyPath = join(tmpDir, 'open-empty.pem');
         writeFileSync(emptyKeyPath, '');
         assert.throws(
-            () => Vault.open(vaultPath, { privateKeyFilename: emptyKeyPath }),
+            () => Vault.openForReading({ filename: vaultPath, privateKeyFilename: emptyKeyPath }),
             /check private key/,
         );
     });
@@ -415,11 +466,61 @@ describe('Vault.open', () => {
         const { privateKey: encPem } = generateRSAKeyPair(passphrase);
         writeFileSync(encKeyPath, encPem as string);
         Vault.init(encVaultPath, { privateKeyFilename: encKeyPath, passphrase });
-        const v = Vault.open(encVaultPath, {
+        const v = Vault.openForReading({
+            filename: encVaultPath,
             privateKeyFilename: encKeyPath,
             passphrase,
         });
         assert(v.canDecrypt);
+    });
+});
+
+describe('Vault.openForWriting', () => {
+    let keyPath: string;
+    let vaultPath: string;
+
+    beforeAll(() => {
+        keyPath = join(tmpDir, 'write-priv.pem');
+        vaultPath = join(tmpDir, 'write.vault.json');
+        writeFileSync(keyPath, privateKeyPem);
+        Vault.init(vaultPath, { privateKeyFilename: keyPath });
+    });
+
+    it('throws when filename is not provided', () => {
+        assert.throws(
+            () => Vault.openForWriting({}),
+            /filename is required/,
+        );
+    });
+
+    it('throws when the vault file does not exist', () => {
+        assert.throws(
+            () => Vault.openForWriting({ filename: join(tmpDir, 'missing.vault.json') }),
+            /does not exist/,
+        );
+    });
+
+    it('returns a vault with canEncrypt', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        assert(v.canEncrypt);
+    });
+
+    it('returns a vault without canDecrypt', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        assert(!v.canDecrypt);
+    });
+
+    it('ignores private key material in opts', () => {
+        const v = Vault.openForWriting({ filename: vaultPath, privateKeyFilename: keyPath });
+        assert(!v.canDecrypt);
+    });
+
+    it('written secrets are readable with the private key', () => {
+        const v = Vault.openForWriting({ filename: vaultPath });
+        v.set('writeKey', 'writeValue');
+        v.write();
+        const r = Vault.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
+        expect(r.get('writeKey')).eq('writeValue');
     });
 });
 

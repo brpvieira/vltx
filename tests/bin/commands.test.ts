@@ -13,7 +13,11 @@ const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys } = vi.hoisted
     const MockVault = Object.assign(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         vi.fn(function() { return mockVaultInstance; } as any),
-        { init: vi.fn() },
+        {
+            init: vi.fn(),
+            openForWriting: vi.fn().mockReturnValue(mockVaultInstance),
+            openForReading: vi.fn().mockReturnValue(mockVaultInstance),
+        },
     );
     const mockGetConfig = vi.fn().mockReturnValue({
         filename: '/test/.vault',
@@ -112,15 +116,18 @@ describe('addHandler', () => {
 
     beforeEach(() => {
         logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        MockVault.openForWriting.mockClear();
     });
 
     afterEach(() => {
         logSpy.mockRestore();
     });
 
-    it('creates a Vault with the resolved filename', () => {
+    it('opens the vault for writing with the resolved config', () => {
         addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
-        expect(MockVault).toHaveBeenCalledWith({ filename: '/test/.vault' });
+        expect(MockVault.openForWriting).toHaveBeenCalledWith(
+            expect.objectContaining({ filename: '/test/.vault' }),
+        );
     });
 
     it('calls set with key and value', () => {
@@ -149,12 +156,20 @@ describe('deleteHandler', () => {
         errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
         mockVaultInstance.delete.mockReturnValue(true);
+        MockVault.openForWriting.mockClear();
     });
 
     afterEach(() => {
         logSpy.mockRestore();
         errorSpy.mockRestore();
         exitSpy.mockRestore();
+    });
+
+    it('opens the vault for writing with the resolved config', () => {
+        deleteHandler(makeArgv({ key: 'mykey' }));
+        expect(MockVault.openForWriting).toHaveBeenCalledWith(
+            expect.objectContaining({ filename: '/test/.vault' }),
+        );
     });
 
     it('calls delete with the given key', () => {
@@ -187,15 +202,18 @@ describe('replaceHandler', () => {
 
     beforeEach(() => {
         logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        MockVault.openForWriting.mockClear();
     });
 
     afterEach(() => {
         logSpy.mockRestore();
     });
 
-    it('creates a Vault with the resolved filename', () => {
+    it('opens the vault for writing with the resolved config', () => {
         replaceHandler(makeArgv({ key: 'k', value: 'v' }));
-        expect(MockVault).toHaveBeenCalledWith({ filename: '/test/.vault' });
+        expect(MockVault.openForWriting).toHaveBeenCalledWith(
+            expect.objectContaining({ filename: '/test/.vault' }),
+        );
     });
 
     it('calls replace with key and value', () => {
@@ -224,12 +242,20 @@ describe('getHandler', () => {
         errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
         mockVaultInstance.get.mockReturnValue('the-value');
+        MockVault.openForReading.mockClear();
     });
 
     afterEach(() => {
         logSpy.mockRestore();
         errorSpy.mockRestore();
         exitSpy.mockRestore();
+    });
+
+    it('opens the vault for reading with the resolved config', () => {
+        getHandler(makeArgv({ key: 'mykey' }));
+        expect(MockVault.openForReading).toHaveBeenCalledWith(
+            expect.objectContaining({ filename: '/test/.vault' }),
+        );
     });
 
     it('calls get with the given key', () => {
@@ -251,9 +277,15 @@ describe('getHandler', () => {
 });
 
 describe('listHandler', () => {
-    it('creates a Vault with the resolved filename', () => {
+    beforeEach(() => {
+        MockVault.openForWriting.mockClear();
+    });
+
+    it('opens the vault for writing with the resolved config', () => {
         listHandler(makeArgv());
-        expect(MockVault).toHaveBeenCalledWith({ filename: '/test/.vault' });
+        expect(MockVault.openForWriting).toHaveBeenCalledWith(
+            expect.objectContaining({ filename: '/test/.vault' }),
+        );
     });
 
     it('calls listKeys with the vault instance', () => {

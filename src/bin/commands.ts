@@ -57,8 +57,8 @@ export function initHandler(argv: ArgumentsCamelCase): void {
  * @returns {void}
  */
 export function addHandler(argv: ArgumentsCamelCase): void {
-    const { filename } = resolveConfig(argv);
-    const v = new Vault({ filename });
+    const cfg = resolveConfig(argv);
+    const v = Vault.openForWriting(cfg);
     const { key, value } = argv as CommandLineArguments;
     v.set(key as string, value as string);
     v.write();
@@ -74,7 +74,7 @@ export function addHandler(argv: ArgumentsCamelCase): void {
  */
 export function deleteHandler(argv: ArgumentsCamelCase): void {
     const cfg = resolveConfig(argv);
-    const v = new Vault(cfg);
+    const v = Vault.openForWriting(cfg);
     const { key } = argv as CommandLineArguments;
     if (!v.delete(key!)) {
         console.error(
@@ -94,8 +94,8 @@ export function deleteHandler(argv: ArgumentsCamelCase): void {
  * @returns {void}
  */
 export function replaceHandler(argv: ArgumentsCamelCase): void {
-    const { filename } = resolveConfig(argv);
-    const v = new Vault({ filename });
+    const cfg = resolveConfig(argv);
+    const v = Vault.openForWriting(cfg);
     const { key, value } = argv as CommandLineArguments;
     v.replace(key as string, value as string);
     v.write();
@@ -111,7 +111,7 @@ export function replaceHandler(argv: ArgumentsCamelCase): void {
  */
 export function getHandler(argv: ArgumentsCamelCase): void {
     const cfg = resolveConfig(argv);
-    const v = new Vault(cfg);
+    const v = Vault.openForReading(cfg);
     const { key } = argv as CommandLineArguments;
     const value = v.get(key!);
     if (value === undefined) {
@@ -129,7 +129,7 @@ export function getHandler(argv: ArgumentsCamelCase): void {
  * @returns {void}
  */
 export function listHandler(argv: ArgumentsCamelCase): void {
-    const { filename } = resolveConfig(argv);
-    const v = new Vault({ filename });
+    const cfg = resolveConfig(argv);
+    const v = Vault.openForWriting(cfg);
     listKeys(v);
 }

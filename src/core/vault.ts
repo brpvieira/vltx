@@ -436,47 +436,88 @@ export default class Vault implements Map<string, string> {
     }
 
     /**
-     * Opens an existing vault file for reading and writing.
+     * Opens a vault from the supplied configuration.
      *
-     * Reads `filename`, loads the embedded public key and secrets,
-     * then unlocks the vault with the private key at
-     * `privateKeyOpts.privateKeyFilename`.
+     * Passes `opts` directly to the {@link Vault} constructor.
+     * If `opts.filename` is provided the file must already exist;
+     * all other validation is left to the caller.
      *
-     * @param filename - Path to an existing vault JSON file.
-     * @param privateKeyOpts - Key material. `privateKeyFilename`
-     *   is required; `passphrase` is forwarded when supplied.
-     * @returns A configured {@link Vault} backed by `filename`.
-     * @throws {Error} If `filename` does not exist.
-     * @throws {Error} If `privateKeyFilename` is not provided.
-     * @throws {Error} If the private key cannot decrypt the vault.
+     * @param opts - Full vault configuration.
+     * @returns A configured {@link Vault} instance.
+     * @throws {Error} If `opts.filename` is provided but does not exist.
      */
-    static open(
-        filename: string, privateKeyOpts: PrivateKeyConfig,
-    ): Vault {
+    static open(opts: VaultConfig): Vault {
+        const { filename } = opts;
+
+        if (filename && !existsSync(filename)) {
+            throw new Error(`Unable to open safe. ${filename} does not exist`);
+        }
+
+        return new Vault(opts);
+    }
+
+    /**
+     * Opens an existing vault file for writing (encryption only).
+     *
+     * Reads `opts.filename` to load the embedded public key; no
+     * private key material from `opts` is forwarded to the
+     * constructor, so the returned vault has `canDecrypt` false.
+     *
+     * @param opts - Full vault configuration. Only `filename` is
+     *   used; all key material is ignored.
+     * @returns A {@link Vault} with `canEncrypt` true and
+     *   `canDecrypt` false.
+     * @throws {Error} If `opts.filename` is not provided.
+     * @throws {Error} If `opts.filename` does not exist.
+     */
+    static openForWriting(opts: VaultConfig): Vault {
+        const { filename } = opts;
+
+        if (!filename) {
+            throw new Error('A filename is required to open the vault');
+        }
+
         if (!existsSync(filename)) {
             throw new Error(`Unable to open safe. ${filename} does not exist`);
         }
 
-        const { privateKeyFilename, passphrase } = privateKeyOpts;
+        return new Vault({ filename });
+    }
 
-        if (!privateKeyFilename) {
-            throw new Error('A private key file name is required to open the \
-vault');
+    /**
+     * Opens an existing vault file for reading (decryption).
+     *
+     * Reads `opts.filename`, loads the embedded public key and
+     * secrets, then unlocks the vault with the private key in
+     * `opts`.
+     *
+     * @param opts - Full vault configuration. `filename` and at
+     *   least one of `privateKeyFilename` or `privateKey` are
+     *   required.
+     * @returns A {@link Vault} with `canDecrypt` true.
+     * @throws {Error} If `opts.filename` is not provided.
+     * @throws {Error} If `opts.filename` does not exist.
+     * @throws {Error} If no private key is provided.
+     * @throws {Error} If the private key cannot decrypt the vault.
+     */
+    static openForReading(opts: VaultConfig): Vault {
+        const { filename, privateKeyFilename, privateKey } = opts;
+
+        if (!filename) {
+            throw new Error('A filename is required to open the vault');
         }
 
-        const cfg: VaultConfig = {
-            filename,
-            privateKeyFilename
-        };
-
-        if (passphrase) {
-            cfg.passphrase = passphrase;
+        if (!existsSync(filename)) {
+            throw new Error(`Unable to open safe. ${filename} does not exist`);
         }
 
-        const v = new Vault(cfg);
+        if (!privateKeyFilename && !privateKey) {
+            throw new Error('A private key is required to open the vault');
+        }
+
+        const v = new Vault(opts);
         if (!v.canDecrypt) {
-            throw new Error('Unable to open safe, check private key and \
-passphrase');
+            throw new Error('Unable to open safe, check private key and passphrase');
         }
         return v;
     }
