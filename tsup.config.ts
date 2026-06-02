@@ -1,17 +1,25 @@
-import { defineConfig } from 'tsup';
+import { defineConfig, type Options } from 'tsup';
 
-export default defineConfig({
-  entry: [
-    'src/index.ts',
-    'src/bin/cli.ts'
-  ],
-  format: ['esm', 'cjs'],
+const shared = {
   target: 'node16',
   platform: 'node',
-  clean: true,
   sourcemap: true,
-  external: ['dotenv'],
+  external: ['dotenv', 'yargs'],
   splitting: false,
   minify: false,
-  dts: true
-});
+} satisfies Partial<Options>;
+
+export default defineConfig([
+  {
+    ...shared,
+    entry: ['src/index.ts', 'src/core/vault.ts'],
+    format: ['esm', 'cjs'],
+    clean: true,
+    dts: true,
+  },
+  {
+    ...shared,
+    entry: { 'bin/cli': 'src/bin/cli.ts' },
+    format: ['esm'],
+  },
+]);
