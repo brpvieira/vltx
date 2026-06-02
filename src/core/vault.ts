@@ -7,11 +7,11 @@ import { isNodeError, stuffString, unstuffString } from './util.js';
 /** Options for supplying a private key to a {@link Vault}. */
 export type PrivateKeyConfig = {
     /** Path to a PEM file containing the private key. */
-    privateKeyFilename?: string,
+    privateKeyFilename?: string | undefined,
     /** Private key as a PEM string or an already-parsed `KeyObject`. */
-    privateKey?: string | KeyObject,
+    privateKey?: string | KeyObject | undefined,
     /** Passphrase used to decrypt an encrypted private key. */
-    passphrase?: string,
+    passphrase?: string | undefined,
 };
 
 /**
@@ -23,12 +23,12 @@ export type PrivateKeyConfig = {
  */
 export type VaultConfig = {
     /** Path to the vault JSON file to read from and write to. */
-    filename?: string,
+    filename?: string | undefined,
     /**
      * Public key as a PEM string or `KeyObject`. Used only when no
      * file is loaded.
      */
-    publicKey?: string | KeyObject
+    publicKey?: string | KeyObject | undefined
 } & PrivateKeyConfig;
 
 /**

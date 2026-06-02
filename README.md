@@ -140,14 +140,22 @@ VAULT_KEY_FILE=~/.keys/prod.rsa
 
 ## Using secrets in your application
 
-Import `setup` from the package and call it once at startup. It loads the vault and — by default — registers a tagged template literal function on the global scope so your secrets are accessible anywhere without threading a reference through your codebase.
+Import `setupVault` from the package and call it once at startup. It loads the vault and — by default — registers a tagged template literal function on the global scope so your secrets are accessible anywhere without threading a reference through your codebase.
 
 ### Quick start
 
+**ESM (import)**
 ```js
-import setup from 'vault';
+import { setupVault } from 'vault';
 
-setup(); // reads .vault and .vault.rsa from cwd, registers global `vault` tag
+setupVault(); // reads .vault and .vault.rsa from cwd, registers global `vault` tag
+```
+
+**CommonJS (require)**
+```js
+const { setupVault } = require('vault');
+
+setupVault(); // reads .vault and .vault.rsa from cwd, registers global `vault` tag
 ```
 
 ```js
@@ -162,12 +170,23 @@ The tag returns the decrypted string for a known key, or an empty string for an 
 
 ### Custom alias and path
 
+**ESM**
 ```js
-import setup from 'vault';
+import { setupVault } from 'vault';
 
-setup({
+setupVault({
     filename: 'secrets/production.vault',
     alias: 'secret',        // registers global.secret instead of global.vault
+});
+```
+
+**CommonJS**
+```js
+const { setupVault } = require('vault');
+
+setupVault({
+    filename: 'secrets/production.vault',
+    alias: 'secret',
 });
 ```
 
@@ -181,10 +200,21 @@ const db = new Database(secret`DB_URL`);
 
 If you prefer explicit access over global injection, disable injection and use the returned `Vault` instance directly:
 
+**ESM**
 ```js
-import setup from 'vault';
+import { setupVault } from 'vault';
 
-const vault = setup({ inject: false });
+const vault = setupVault({ inject: false });
+
+const dbUrl  = vault.get('DB_URL');
+const apiKey = vault.get('API_KEY');
+```
+
+**CommonJS**
+```js
+const { setupVault } = require('vault');
+
+const vault = setupVault({ inject: false });
 
 const dbUrl  = vault.get('DB_URL');
 const apiKey = vault.get('API_KEY');
@@ -203,7 +233,7 @@ declare function vault(strings: TemplateStringsArray): string;
 
 ---
 
-### `setup()` options
+### `setupVault()` options
 
 | Option     | Type      | Default   | Description                           |
 |------------|-----------|-----------|---------------------------------------|
@@ -211,7 +241,7 @@ declare function vault(strings: TemplateStringsArray): string;
 | `alias`    | `string`  | `'vault'` | Name of the global tag function       |
 | `inject`   | `boolean` | `true`    | Register the tag function on `global` |
 
-`setup()` is idempotent — repeated calls with the same alias return the cached `Vault` instance. The vault file path is resolved from `filename`, then `VAULT_FILE`, then `.vault` in the current directory.
+`setupVault()` is idempotent — repeated calls with the same alias return the cached `Vault` instance. The vault file path is resolved from `filename`, then `VAULT_FILE`, then `.vault` in the current directory.
 
 ---
 
@@ -219,8 +249,21 @@ declare function vault(strings: TemplateStringsArray): string;
 
 By default the module resolves the private key path from `VAULT_KEY_FILE` (or `.vault.rsa`). You can also pass it directly through `Vault.open` for full control:
 
+**ESM**
 ```js
 import { Vault } from 'vault';
+
+const v = Vault.open('secrets/production.vault', {
+    privateKeyFilename: '/run/secrets/vault.rsa',
+    passphrase: process.env.VAULT_PASSPHRASE,
+});
+
+const dbUrl = v.get('DB_URL');
+```
+
+**CommonJS**
+```js
+const { Vault } = require('vault');
 
 const v = Vault.open('secrets/production.vault', {
     privateKeyFilename: '/run/secrets/vault.rsa',

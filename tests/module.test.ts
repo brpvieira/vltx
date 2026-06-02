@@ -1,14 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import setup from '../src/index.js';
+import { setupVault as setup } from '../src/index.js';
 import Vault from '../src/core/vault.js';
 import { generateRSAKeyPair } from '../src/core/rsa.js';
 
-vi.mock('../src/core/env.js', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('../src/core/env.js')>();
-    return { default: vi.fn(actual.default) };
-});
+vi.mock('../src/core/env.js', () => ({
+    default: vi.fn((cfg?: { filename?: string }) => ({ filename: cfg?.filename }))
+}));
 
 const tmpDir = mkdtempSync(join(__dirname, 'tmp', 'module-'));
 

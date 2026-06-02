@@ -3,11 +3,15 @@ import getConfig from './core/env.js';
 
 const vaults = new Map<string, Vault>();
 
-type VaultModuleConfig = {
-    filename?: string,
+type VaultModuleConfig = VaultConfig & {
     alias?: string,
     inject?: boolean
 };
+
+ const DEFAULTS = {
+     alias: 'vault',
+     inject: true
+ } as const;
 
 function vaultTag(vault: Vault, strings: TemplateStringsArray,
      ...values: unknown[]): string {
@@ -18,38 +22,35 @@ function vaultTag(vault: Vault, strings: TemplateStringsArray,
     return vault.get(strings[0]) || '';
 }
 
-function resolveConfig(filename?: string) : VaultConfig {
-     const args: VaultConfig = {};
-     if (filename) {
-         args.filename = filename;
-     }
-     const resolved = getConfig(args);
-     return resolved.filename ? { filename: resolved.filename } : {};
- }
-
 /**
  * Initializes (or retrieves) a Vault for the given alias. When
- * `inject` is true, registers a vault`KEY` tag function on `global`.
+ * `inject` is true, registers a `alias\`KEY\`` tag function on `global`.
  *
- * @param filename - Vault file path; falls back to env defaults.
- * @param alias - Global name for the tag function.
- * @param inject - Register the tag function on `global` (default: true).
- * @returns The initialised {@link Vault} instance.
+ * Calls with the same `alias` are idempotent — the first call creates
+ * and caches the {@link Vault}; subsequent calls return the cached instance.
+ *
+ * @param args - Configuration object.
+ * @param args.filename - Path to the vault file; falls back to the
+ *   `VAULT_FILE` environment variable, then `.vault`.
+ * @param args.alias - Name of the global tag function (default: `'vault'`).
+ * @param args.inject - Register the tag function on `global`
+ *   (default: `true`). Pass `false` to skip global registration and
+ *   use the returned {@link Vault} directly.
+ * @returns The initialized {@link Vault} instance.
  */
-export default function setup({ filename, alias = 'vault', inject = true }:
-     VaultModuleConfig) {
+export function setupVault(args: VaultModuleConfig = {}) {
     let v: Vault;
-
-    if (vaults.has(alias)) {
-        v = vaults.get(alias)!;
+    const opts: VaultModuleConfig = { ...DEFAULTS, ...args };
+    if (vaults.has(opts.alias!)) {
+        v = vaults.get(opts.alias!)!;
     } else {
-        const cfg = resolveConfig(filename);
+        const cfg = getConfig(opts as VaultConfig);
         v = new Vault(cfg);
-        vaults.set(alias, v);
+        vaults.set(opts.alias!, v);
     }
 
-    if (inject && !(alias in global)) {
-        (global as Record<string, unknown>)[alias] = vaultTag.bind(null, v);
+    if (opts.inject && !(opts.alias! in global)) {
+        (global as Record<string, unknown>)[opts.alias!] = vaultTag.bind(null, v);
     }
     return v;
 }
