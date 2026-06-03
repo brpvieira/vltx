@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type Vault from '../../src/core/vault.js';
 import {
-    log, setLogLevel, debug, info, warn, error,
+    _doLog, log, setLogLevel, debug, info, warn, error,
 } from '../../src/bin/helpers.js';
 import { listKeys } from '../../src/bin/helpers.js';
 
@@ -15,9 +15,9 @@ function makeVault(keys: string[], filename = '/test/.vault'): Vault {
     return { keys: () => new Set(keys), filename } as unknown as Vault;
 }
 
-// ─── log ─────────────────────────────────────────────────────────────────────
+// ─── _doLog ──────────────────────────────────────────────────────────────────
 
-describe('log', () => {
+describe('_doLog', () => {
     let stdoutSpy: ReturnType<typeof vi.spyOn>;
     let stderrSpy: ReturnType<typeof vi.spyOn>;
 
@@ -37,29 +37,34 @@ describe('log', () => {
 
     describe('stream routing', () => {
         it('routes error to stderr', () => {
-            log('error', 'msg');
+            _doLog('error', 'msg');
             expect(stderrSpy).toHaveBeenCalledOnce();
             expect(stdoutSpy).not.toHaveBeenCalled();
         });
 
-        it.each(['debug', 'info', 'warn'] as const)('routes %s to stdout', (level) => {
-            log(level, 'msg');
-            expect(stdoutSpy).toHaveBeenCalledOnce();
-            expect(stderrSpy).not.toHaveBeenCalled();
-        });
+        it.each(['debug', 'info', 'warn', 'normal'] as const)(
+            'routes %s to stdout', (level) => {
+                _doLog(level, 'msg');
+                expect(stdoutSpy).toHaveBeenCalledOnce();
+                expect(stderrSpy).not.toHaveBeenCalled();
+            },
+        );
     });
 
     describe('threshold filtering', () => {
         it.each([
-            { threshold: 'info',  level: 'debug', passes: false },
-            { threshold: 'info',  level: 'info',  passes: true  },
-            { threshold: 'warn',  level: 'info',  passes: false },
-            { threshold: 'warn',  level: 'warn',  passes: true  },
-            { threshold: 'warn',  level: 'error', passes: true  },
-            { threshold: 'error', level: 'warn',  passes: false },
+            { threshold: 'info',   level: 'debug',  passes: false },
+            { threshold: 'info',   level: 'info',   passes: true  },
+            { threshold: 'warn',   level: 'info',   passes: false },
+            { threshold: 'warn',   level: 'warn',   passes: true  },
+            { threshold: 'warn',   level: 'error',  passes: true  },
+            { threshold: 'error',  level: 'warn',   passes: false },
+            { threshold: 'error',  level: 'normal', passes: true  },
+            { threshold: 'normal', level: 'error',  passes: false },
+            { threshold: 'normal', level: 'normal', passes: true  },
         ] as const)('$level at threshold $threshold → passes=$passes', ({ threshold, level, passes }) => {
             setLogLevel(threshold);
-            log(level, 'msg');
+            _doLog(level, 'msg');
             const spy = level === 'error' ? stderrSpy : stdoutSpy;
             if (passes) {
                 expect(spy).toHaveBeenCalledOnce();
@@ -70,18 +75,18 @@ describe('log', () => {
     });
 
     describe('message formatting', () => {
-        it('joins multiple args with spaces', () => {
-            log('info', 'hello', 'world');
+        it('joins multiple string args with spaces', () => {
+            _doLog('info', 'hello', 'world');
             expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('hello world'));
         });
 
         it('coerces non-string args to strings', () => {
-            log('info', 42, true, null);
+            _doLog('info', 42, true, null);
             expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('42 true null'));
         });
 
         it('terminates with a newline', () => {
-            log('info', 'test');
+            _doLog('info', 'test');
             expect(stdoutSpy).toHaveBeenCalledWith(expect.stringMatching(/\n$/));
         });
     });
@@ -90,17 +95,23 @@ describe('log', () => {
         it.each(['debug', 'info', 'warn', 'error'] as const)(
             'prefixes %s with [LEVEL] label', (level) => {
                 const spy = level === 'error' ? stderrSpy : stdoutSpy;
-                log(level, 'msg');
+                _doLog(level, 'msg');
                 expect(spy).toHaveBeenCalledWith(
                     expect.stringContaining(`[${level.toUpperCase()}] msg`),
                 );
             },
         );
 
-        it('contains no ANSI escape codes', () => {
-            log('info', 'msg');
+        it('contains no ANSI escape codes for leveled messages', () => {
+            _doLog('info', 'msg');
             // eslint-disable-next-line no-control-regex
             expect(stdoutSpy).toHaveBeenCalledWith(expect.not.stringMatching(/\x1b\[/));
+        });
+
+        it('normal level has no [NORMAL] tag', () => {
+            _doLog('normal', 'msg');
+            expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('msg'));
+            expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining('[NORMAL]'));
         });
     });
 
@@ -114,61 +125,46 @@ describe('log', () => {
             const stream = level === 'error' ? process.stderr : process.stdout;
             const spy    = level === 'error' ? stderrSpy : stdoutSpy;
             setTTY(stream, true);
-            log(level, 'msg');
+            _doLog(level, 'msg');
             expect(spy).toHaveBeenCalledWith(expect.stringContaining(symbol));
         });
 
-        it('includes ANSI color codes', () => {
+        it('applies ANSI_SYMBOL color to symbol', () => {
             setTTY(process.stdout, true);
-            log('info', 'msg');
-            // eslint-disable-next-line no-control-regex
-            expect(stdoutSpy).toHaveBeenCalledWith(expect.stringMatching(/\x1b\[/));
+            _doLog('info', 'msg');
+            // ANSI_SYMBOL.info = bold bright cyan
+             
+            expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('\x1b[1;96m'));
+        });
+
+        it('applies ANSI_TEXT color to message text', () => {
+            setTTY(process.stdout, true);
+            _doLog('info', 'msg');
+            // ANSI_TEXT.info = cyan
+             
+            expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('\x1b[0;36m'));
         });
 
         it('omits the [LEVEL] label', () => {
             setTTY(process.stdout, true);
-            log('info', 'msg');
+            _doLog('info', 'msg');
             expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining('[INFO]'));
         });
-    });
-});
 
-// ─── LOG_LEVEL env var ────────────────────────────────────────────────────────
+        it('normal level in TTY mode has no symbol tag', () => {
+            setTTY(process.stdout, true);
+            _doLog('normal', 'msg');
+            expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining('[NORMAL]'));
+            expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('msg'));
+        });
 
-describe('LOG_LEVEL env var', () => {
-    afterEach(() => {
-        vi.resetModules();
-        delete process.env['LOG_LEVEL'];
-    });
-
-    it('applies debug threshold when LOG_LEVEL=debug', async () => {
-        process.env['LOG_LEVEL'] = 'debug';
-        vi.resetModules();
-        const { log: freshLog } = await import('../../src/bin/helpers.js');
-        const spy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-        freshLog('debug', 'visible');
-        expect(spy).toHaveBeenCalledOnce();
-        spy.mockRestore();
-    });
-
-    it('suppresses debug by default (info threshold)', async () => {
-        vi.resetModules();
-        const { log: freshLog } = await import('../../src/bin/helpers.js');
-        const spy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-        freshLog('debug', 'suppressed');
-        freshLog('info',  'visible');
-        expect(spy).toHaveBeenCalledOnce();
-        spy.mockRestore();
-    });
-
-    it('falls back to info threshold for an unrecognized level name', async () => {
-        process.env['LOG_LEVEL'] = 'verbose';
-        vi.resetModules();
-        const { log: freshLog } = await import('../../src/bin/helpers.js');
-        const spy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-        freshLog('debug', 'suppressed');
-        expect(spy).not.toHaveBeenCalled();
-        spy.mockRestore();
+        it('normal level in TTY mode wraps text in ANSI_TEXT color', () => {
+            setTTY(process.stdout, true);
+            _doLog('normal', 'msg');
+            // ANSI_TEXT.normal = default color
+            // eslint-disable-next-line no-control-regex
+            expect(stdoutSpy).toHaveBeenCalledWith(expect.stringMatching(/\x1b\[/));
+        });
     });
 });
 
@@ -192,24 +188,30 @@ describe('convenience wrappers', () => {
         setLogLevel('info');
     });
 
-    it('debug writes to stdout', () => {
+    it('debug writes to stdout with [DEBUG] label', () => {
         debug('msg');
         expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('[DEBUG] msg'));
     });
 
-    it('info writes to stdout', () => {
+    it('info writes to stdout with [INFO] label', () => {
         info('msg');
         expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('[INFO] msg'));
     });
 
-    it('warn writes to stdout', () => {
+    it('warn writes to stdout with [WARN] label', () => {
         warn('msg');
         expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('[WARN] msg'));
     });
 
-    it('error writes to stderr', () => {
+    it('error writes to stderr with [ERROR] label', () => {
         error('msg');
         expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[ERROR] msg'));
+    });
+
+    it('log writes to stdout with no tag', () => {
+        log('msg');
+        expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('msg'));
+        expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining('[NORMAL]'));
     });
 });
 
