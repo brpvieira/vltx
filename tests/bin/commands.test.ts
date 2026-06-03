@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ArgumentsCamelCase } from 'yargs';
 
-const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys } = vi.hoisted(() => {
+const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError } = vi.hoisted(() => {
     const mockVaultInstance = {
         set: vi.fn(),
         write: vi.fn(),
@@ -24,12 +24,18 @@ const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys } = vi.hoisted
         privateKeyFilename: '/test/.vault.rsa',
     });
     const mockListKeys = vi.fn();
-    return { mockVaultInstance, MockVault, mockGetConfig, mockListKeys };
+    const mockLog = vi.fn();
+    const mockError = vi.fn();
+    return { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError };
 });
 
 vi.mock('../../src/core/vault.js', () => ({ default: MockVault }));
 vi.mock('../../src/core/env.js', () => ({ default: mockGetConfig }));
-vi.mock('../../src/bin/helpers.js', () => ({ listKeys: mockListKeys }));
+vi.mock('../../src/bin/helpers.js', () => ({
+    listKeys: mockListKeys,
+    log: mockLog,
+    error: mockError,
+}));
 
 import {
     resolveConfig,
@@ -82,16 +88,6 @@ describe('resolveConfig', () => {
 });
 
 describe('initHandler', () => {
-    let logSpy: ReturnType<typeof vi.spyOn>;
-
-    beforeEach(() => {
-        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    });
-
-    afterEach(() => {
-        logSpy.mockRestore();
-    });
-
     it('calls Vault.init with resolved filename and config', () => {
         initHandler(makeArgv());
         expect(MockVault.init).toHaveBeenCalledWith(
@@ -102,25 +98,18 @@ describe('initHandler', () => {
 
     it('logs the vault filename', () => {
         initHandler(makeArgv());
-        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('/test/.vault'));
+        expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('/test/.vault'));
     });
 
     it('logs the private key filename', () => {
         initHandler(makeArgv());
-        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('/test/.vault.rsa'));
+        expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('/test/.vault.rsa'));
     });
 });
 
 describe('addHandler', () => {
-    let logSpy: ReturnType<typeof vi.spyOn>;
-
     beforeEach(() => {
-        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         MockVault.openForWriting.mockClear();
-    });
-
-    afterEach(() => {
-        logSpy.mockRestore();
     });
 
     it('opens the vault for writing with the resolved config', () => {
@@ -142,26 +131,20 @@ describe('addHandler', () => {
 
     it('logs the added key', () => {
         addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
-        expect(logSpy).toHaveBeenCalledWith('Added: mykey');
+        expect(mockLog).toHaveBeenCalledWith('Added: mykey');
     });
 });
 
 describe('deleteHandler', () => {
-    let logSpy: ReturnType<typeof vi.spyOn>;
-    let errorSpy: ReturnType<typeof vi.spyOn>;
     let exitSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
-        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-        errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
         mockVaultInstance.delete.mockReturnValue(true);
         MockVault.openForWriting.mockClear();
     });
 
     afterEach(() => {
-        logSpy.mockRestore();
-        errorSpy.mockRestore();
         exitSpy.mockRestore();
     });
 
@@ -180,13 +163,13 @@ describe('deleteHandler', () => {
     it('writes and logs when the key exists', () => {
         deleteHandler(makeArgv({ key: 'mykey' }));
         expect(mockVaultInstance.write).toHaveBeenCalled();
-        expect(logSpy).toHaveBeenCalledWith('Deleted: mykey');
+        expect(mockLog).toHaveBeenCalledWith('Deleted: mykey');
     });
 
     it('logs an error and exits with 1 when key is not found', () => {
         mockVaultInstance.delete.mockReturnValueOnce(false);
         expect(() => deleteHandler(makeArgv({ key: 'missing' }))).toThrow('process.exit');
-        expect(errorSpy).toHaveBeenCalledWith('Key not found: missing');
+        expect(mockError).toHaveBeenCalledWith('Key not found: missing');
         expect(exitSpy).toHaveBeenCalledWith(1);
     });
 
@@ -198,15 +181,8 @@ describe('deleteHandler', () => {
 });
 
 describe('replaceHandler', () => {
-    let logSpy: ReturnType<typeof vi.spyOn>;
-
     beforeEach(() => {
-        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
         MockVault.openForWriting.mockClear();
-    });
-
-    afterEach(() => {
-        logSpy.mockRestore();
     });
 
     it('opens the vault for writing with the resolved config', () => {
@@ -228,26 +204,20 @@ describe('replaceHandler', () => {
 
     it('logs the replaced key', () => {
         replaceHandler(makeArgv({ key: 'k', value: 'v' }));
-        expect(logSpy).toHaveBeenCalledWith('Replaced: k');
+        expect(mockLog).toHaveBeenCalledWith('Replaced: k');
     });
 });
 
 describe('getHandler', () => {
-    let logSpy: ReturnType<typeof vi.spyOn>;
-    let errorSpy: ReturnType<typeof vi.spyOn>;
     let exitSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
-        logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-        errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
         mockVaultInstance.get.mockReturnValue('the-value');
         MockVault.openForReading.mockClear();
     });
 
     afterEach(() => {
-        logSpy.mockRestore();
-        errorSpy.mockRestore();
         exitSpy.mockRestore();
     });
 
@@ -265,13 +235,13 @@ describe('getHandler', () => {
 
     it('logs the secret value when the key exists', () => {
         getHandler(makeArgv({ key: 'mykey' }));
-        expect(logSpy).toHaveBeenCalledWith('the-value');
+        expect(mockLog).toHaveBeenCalledWith('the-value');
     });
 
     it('logs an error and exits with 1 when key is not found', () => {
         mockVaultInstance.get.mockReturnValueOnce(undefined);
         expect(() => getHandler(makeArgv({ key: 'missing' }))).toThrow('process.exit');
-        expect(errorSpy).toHaveBeenCalledWith('Key not found: missing');
+        expect(mockError).toHaveBeenCalledWith('Key not found: missing');
         expect(exitSpy).toHaveBeenCalledWith(1);
     });
 });

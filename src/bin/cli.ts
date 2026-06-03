@@ -4,6 +4,7 @@ import yargs, { type Argv } from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { initHandler, addHandler, listHandler, getHandler,
     replaceHandler, deleteHandler } from './commands.js';
+import { error } from './helpers.js';
 
 function addVaultFile(y: Argv): Argv {
     return y.option('vault-file', {
@@ -129,6 +130,6 @@ const cli = yargs(hideBin(process.argv))
     .alias('h', 'help');
 
 void cli.parseAsync().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : String(err));
+    error(err);
     process.exit(1);
 });
