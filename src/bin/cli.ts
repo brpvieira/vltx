@@ -4,7 +4,7 @@ import yargs, { type Argv } from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { initHandler, addHandler, listHandler, getHandler,
     replaceHandler, deleteHandler } from './commands.js';
-import { error } from './helpers.js';
+import { error } from '../core/logger.js';
 
 function addVaultFile(y: Argv): Argv {
     return y.option('vault-file', {

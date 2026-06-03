@@ -7,6 +7,12 @@
 <code>VAULT_PASSPHRASE</code> environment variables, falling back to defaults
 of <code>.vault</code> and <code>.vault.rsa</code> in the current working directory.</p>
 </dd>
+<dt><a href="#module_core/logger">core/logger</a></dt>
+<dd><p>Structured logger for CLI output.</p>
+<p>Provides levelled log functions (<code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code>, <code>log</code>)
+with optional ANSI colour formatting when writing to a TTY.
+The active threshold is controlled via <a href="setLogLevel">setLogLevel</a>.</p>
+</dd>
 <dt><a href="#module_core/rsa">core/rsa</a></dt>
 <dd><p>RSA key-pair generation and parsing helpers.</p>
 <p>Wraps the Node.js <code>crypto</code> module to generate 4096-bit RSA key pairs
@@ -94,6 +100,99 @@ Resolution order (highest priority first):
 | Param | Description |
 | --- | --- |
 | overrides | Partial config values that take highest priority. |
+
+<a name="module_core/logger"></a>
+
+## core/logger
+Structured logger for CLI output.
+
+Provides levelled log functions (`debug`, `info`, `warn`, `error`, `log`)
+with optional ANSI colour formatting when writing to a TTY.
+The active threshold is controlled via [setLogLevel](setLogLevel).
+
+
+* [core/logger](#module_core/logger)
+    * [.LogLevel](#module_core/logger.LogLevel)
+    * [.debug](#module_core/logger.debug)
+    * [.info](#module_core/logger.info)
+    * [.warn](#module_core/logger.warn)
+    * [.error](#module_core/logger.error)
+    * [.log](#module_core/logger.log)
+    * [.setLogLevel(level)](#module_core/logger.setLogLevel) ⇒ <code>void</code>
+    * [._doLog(level, args)](#module_core/logger._doLog) ⇒ <code>void</code>
+
+<a name="module_core/logger.LogLevel"></a>
+
+### core/logger.LogLevel
+Numeric severity order for log levels.
+Higher values indicate greater severity.
+`normal` (4) is the highest level; it produces untagged output and
+is unaffected by any threshold below `'normal'`.
+
+**Kind**: static constant of [<code>core/logger</code>](#module_core/logger)  
+<a name="module_core/logger.debug"></a>
+
+### core/logger.debug
+Logs a `debug`-level message. @param args - Message parts.
+
+**Kind**: static constant of [<code>core/logger</code>](#module_core/logger)  
+<a name="module_core/logger.info"></a>
+
+### core/logger.info
+Logs an `info`-level message. @param args - Message parts.
+
+**Kind**: static constant of [<code>core/logger</code>](#module_core/logger)  
+<a name="module_core/logger.warn"></a>
+
+### core/logger.warn
+Logs a `warn`-level message. @param args - Message parts.
+
+**Kind**: static constant of [<code>core/logger</code>](#module_core/logger)  
+<a name="module_core/logger.error"></a>
+
+### core/logger.error
+Logs an `error`-level message to stderr. @param args - Message parts.
+
+**Kind**: static constant of [<code>core/logger</code>](#module_core/logger)  
+<a name="module_core/logger.log"></a>
+
+### core/logger.log
+Writes a message at `normal` level: no tag, stdout only. @param args - Message parts.
+
+**Kind**: static constant of [<code>core/logger</code>](#module_core/logger)  
+<a name="module_core/logger.setLogLevel"></a>
+
+### core/logger.setLogLevel(level) ⇒ <code>void</code>
+Sets the minimum severity level that produces output.
+Messages whose level is below `level` are silently discarded.
+Defaults to `'info'` at module load time.
+
+**Kind**: static method of [<code>core/logger</code>](#module_core/logger)  
+
+| Param | Description |
+| --- | --- |
+| level | The new minimum log level. |
+
+<a name="module_core/logger._doLog"></a>
+
+### core/logger.\_doLog(level, args) ⇒ <code>void</code>
+Core log dispatch; all exported wrappers delegate here.
+Silently discards the call when `level` is below the threshold.
+
+`'error'` is written to `stderr`; all other levels go to `stdout`.
+For every level except `'normal'` a tag is prepended to the line:
+- TTY: `ANSI_SYMBOL[level]` + Unicode symbol + reset escape
+- plain: `[LEVEL]` label
+Message text is formatted via `util.formatWithOptions`. In TTY mode
+it is wrapped in `ANSI_TEXT[level]` colour codes; for `'normal'`
+Node's own colour output is also enabled inside `formatWithOptions`.
+
+**Kind**: static method of [<code>core/logger</code>](#module_core/logger)  
+
+| Param | Description |
+| --- | --- |
+| level | Severity of this message. |
+| args | Forwarded to `util.formatWithOptions` to form the body. |
 
 <a name="module_core/rsa"></a>
 

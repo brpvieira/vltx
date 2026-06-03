@@ -1,7 +1,8 @@
 import Vault, { type VaultConfig } from '../core/vault.js';
 import type { ArgumentsCamelCase } from 'yargs';
 import getConfig from '../core/env.js';
-import { listKeys, log, error } from './helpers.js';
+import { listKeys } from './helpers.js';
+import { log, error } from '../core/logger.js';
 
 type CommandLineArguments = Partial<{
     'vault-file'?: string | undefined,

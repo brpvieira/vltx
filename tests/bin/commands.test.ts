@@ -33,6 +33,8 @@ vi.mock('../../src/core/vault.js', () => ({ default: MockVault }));
 vi.mock('../../src/core/env.js', () => ({ default: mockGetConfig }));
 vi.mock('../../src/bin/helpers.js', () => ({
     listKeys: mockListKeys,
+}));
+vi.mock('../../src/core/logger.js', () => ({
     log: mockLog,
     error: mockError,
 }));
