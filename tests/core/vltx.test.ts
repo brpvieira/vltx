@@ -203,6 +203,34 @@ describe('Vltx.read / Vltx.write', () => {
         assert.throws(() => v.tryRead(vaultPath), SyntaxError);
     });
 
+    it('read throws a friendly error when publicKey is null', () => {
+        const vaultPath = join(tmpDir, 'null-pubkey.vault.json');
+        writeFileSync(vaultPath, JSON.stringify({ publicKey: null, secrets: {} }));
+        const v = new Vltx({});
+        assert.throws(() => v.read(vaultPath), /invalid publicKey/);
+    });
+
+    it('read throws a friendly error when publicKey is missing', () => {
+        const vaultPath = join(tmpDir, 'missing-pubkey.vault.json');
+        writeFileSync(vaultPath, JSON.stringify({ secrets: {} }));
+        const v = new Vltx({});
+        assert.throws(() => v.read(vaultPath), /invalid publicKey/);
+    });
+
+    it('read throws a friendly error when secrets is null', () => {
+        const vaultPath = join(tmpDir, 'null-secrets.vault.json');
+        writeFileSync(vaultPath, JSON.stringify({ publicKey: publicKeyPem, secrets: null }));
+        const v = new Vltx({});
+        assert.throws(() => v.read(vaultPath), /missing secrets/);
+    });
+
+    it('read throws a friendly error when secrets is missing', () => {
+        const vaultPath = join(tmpDir, 'missing-secrets.vault.json');
+        writeFileSync(vaultPath, JSON.stringify({ publicKey: publicKeyPem }));
+        const v = new Vltx({});
+        assert.throws(() => v.read(vaultPath), /missing secrets/);
+    });
+
     it('persists secrets sorted by key', () => {
         const vaultPath = join(tmpDir, 'sorted.vault.json');
         const v = new Vltx({ privateKey: privateKeyPem });

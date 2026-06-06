@@ -182,6 +182,10 @@ export default class Vltx implements Map<string, string> {
      *   filename supplied at construction.
      * @returns `this` for chaining.
      * @throws {Error} If no filename is available.
+     * @throws {Error} If the vault file is missing or has an invalid
+     *   `publicKey` field.
+     * @throws {Error} If the vault file is missing the `secrets`
+     *   field.
      */
     read(filename?: string): this {
         filename = filename || this.#filename;
@@ -190,6 +194,13 @@ export default class Vltx implements Map<string, string> {
         }
         const raw = readFileSync(filename, 'utf8');
         const { publicKey, secrets } = JSON.parse(raw);
+
+        if (!publicKey || typeof publicKey !== 'string') {
+            throw new Error('Vault file is missing or has an invalid publicKey');
+        }
+        if (!secrets || typeof secrets !== 'object') {
+            throw new Error('Vault file is missing secrets');
+        }
 
         this.setPublicKey(parsePublicKey(publicKey));
         return this.load(secrets);
