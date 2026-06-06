@@ -683,15 +683,28 @@ describe('Map interface', () => {
         assert(!v.has('missing'));
     });
 
-    it('get returns raw value when no private key is set', () => {
+    it('get throws when no private key is set', () => {
         const v = new Vltx({});
         v.load({ key: 'raw-value' });
-        expect(v.get('key')).eq('raw-value');
+        assert.throws(() => v.get('key'), /private key/);
     });
 
     it('get returns undefined for a missing key', () => {
-        const v = new Vltx({});
+        const v = new Vltx({ privateKey: privateKeyPem });
         assert.strictEqual(v.get('nonexistent'), undefined);
+    });
+
+    it('getRaw returns ciphertext without decrypting', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.set('k', 'plaintext');
+        const raw = v.getRaw('k');
+        assert.ok(raw);
+        assert.notEqual(raw, 'plaintext');
+    });
+
+    it('getRaw returns undefined for a missing key', () => {
+        const v = new Vltx({});
+        assert.strictEqual(v.getRaw('nonexistent'), undefined);
     });
 
     it('delete removes an existing key', () => {

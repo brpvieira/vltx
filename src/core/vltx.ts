@@ -317,22 +317,45 @@ export default class Vltx implements Map<string, string> {
     }
 
     /**
-     * Returns the value for `key`.
-     * When a private key is loaded the stored (encrypted) value is
-     * decrypted before being returned.
-     * When no private key is available the raw stored string is
-     * returned as-is.
-     * @param key - The secret key to retrieve.
-     * @returns The (decrypted) value, or `undefined` if the key
+     * Decrypts and returns the secret stored under `key`.
+     *
+     * Unlike the `Map` iteration methods (`entries()`, `values()`,
+     * `[Symbol.iterator]`), which yield raw ciphertext, this method
+     * performs RSA decryption and returns the original plaintext.
+     * @param key - The secret key to look up.
+     * @returns The decrypted plaintext value, or `undefined` if `key`
      *   does not exist.
+     * @throws {Error} If no private key is loaded (`canDecrypt` is
+     *   `false`).
      */
     get(key: string): string | undefined {
-        const raw = this.#secrets.get(key);
-        if (!raw || !this.canDecrypt) { return raw; }
+        if (!this.canDecrypt) {
+            throw Error('A private key is needed to read secrets.');
+        }
+        const raw = this.getRaw(key);
+        if (!raw) { return raw; }
         const buf = Buffer.from(raw, 'base64');
         const decrypted = decrypt(this.#privateKey!, buf)
             .toString('utf8');
         return unstuffString(decrypted);
+    }
+
+    /**
+     * Returns the raw base64-encoded ciphertext for `key` without
+     * decrypting it.
+     *
+     * Useful for inspecting or transferring encrypted values without
+     * requiring a private key. Returns `undefined` when the key does
+     * not exist.
+     * @param key - The secret key to look up.
+     * @returns The base64-encoded ciphertext, or `undefined` if `key`
+     *   does not exist.
+     */
+    getRaw(key: string) : string | undefined {
+        if (this.#secrets.has(key)) {
+            return this.#secrets.get(key);
+        }
+        return undefined;
     }
 
     /**

@@ -1,19 +1,19 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { Vltx, setup } from '../src/index.js';
 import { generateRSAKeyPair } from '../src/core/rsa.js';
 
 vi.mock('../src/core/env.js', () => ({
-    default: vi.fn((cfg?: { filename?: string }) => ({ filename: cfg?.filename }))
+    default: vi.fn((cfg = {}) => ({ ...cfg }))
 }));
 
 const tmpDir = mkdtempSync(join(__dirname, 'tmp', 'module-'));
 
-let publicKeyPem: string;
+let privateKeyPem: string;
 
 beforeAll(() => {
-    ({ publicKey: publicKeyPem } = generateRSAKeyPair() as { publicKey: string; privateKey: string });
+    ({ privateKey: privateKeyPem } = generateRSAKeyPair() as { privateKey: string });
 });
 
 let counter = 0;
@@ -29,7 +29,11 @@ afterEach(() => {
 
 function makeVltxFile(secrets: Record<string, string>): string {
     const path = join(tmpDir, `vault-${Date.now()}.json`);
-    writeFileSync(path, JSON.stringify({ publicKey: publicKeyPem, secrets }));
+    const v = new Vltx({ privateKey: privateKeyPem });
+    for (const [k, val] of Object.entries(secrets)) {
+        v.set(k, val);
+    }
+    v.write(path);
     return path;
 }
 
@@ -96,14 +100,15 @@ describe('tag function', () => {
         const vaultPath = makeVltxFile({ SECRET: 'hello' });
         const alias = nextAlias();
         injected.push(alias);
-        setup({ alias, filename: vaultPath });
+        setup({ alias, filename: vaultPath, privateKey: privateKeyPem });
         expect(getTag(alias)`SECRET`).toBe('hello');
     });
 
     it('returns empty string for a missing key', () => {
+        const vaultPath = makeVltxFile({});
         const alias = nextAlias();
         injected.push(alias);
-        setup({ alias });
+        setup({ alias, filename: vaultPath, privateKey: privateKeyPem });
         expect(getTag(alias)`MISSING`).toBe('');
     });
 

@@ -393,6 +393,7 @@ helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
             * [.delete(key)](#module_core/vltx--module.exports+delete) ⇒
             * [.forEach(callbackfn, thisArg)](#module_core/vltx--module.exports+forEach)
             * [.get(key)](#module_core/vltx--module.exports+get) ⇒
+            * [.getRaw(key)](#module_core/vltx--module.exports+getRaw) ⇒
             * [.has(key)](#module_core/vltx--module.exports+has)
             * [.set(key, value)](#module_core/vltx--module.exports+set) ⇒
             * [.replace(key, value)](#module_core/vltx--module.exports+replace) ⇒
@@ -629,19 +630,42 @@ insertion order.
 <a name="module_core/vltx--module.exports+get"></a>
 
 #### module.exports.get(key) ⇒
-Returns the value for `key`.
-When a private key is loaded the stored (encrypted) value is
-decrypted before being returned.
-When no private key is available the raw stored string is
-returned as-is.
+Decrypts and returns the secret stored under `key`.
+
+Unlike the `Map` iteration methods (`entries()`, `values()`,
+`[Symbol.iterator]`), which yield raw ciphertext, this method
+performs RSA decryption and returns the original plaintext.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
-**Returns**: The (decrypted) value, or `undefined` if the key
+**Returns**: The decrypted plaintext value, or `undefined` if `key`
+  does not exist.  
+**Throws**:
+
+- <code>Error</code> If no private key is loaded (`canDecrypt` is
+  `false`).
+
+
+| Param | Description |
+| --- | --- |
+| key | The secret key to look up. |
+
+<a name="module_core/vltx--module.exports+getRaw"></a>
+
+#### module.exports.getRaw(key) ⇒
+Returns the raw base64-encoded ciphertext for `key` without
+decrypting it.
+
+Useful for inspecting or transferring encrypted values without
+requiring a private key. Returns `undefined` when the key does
+not exist.
+
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+**Returns**: The base64-encoded ciphertext, or `undefined` if `key`
   does not exist.  
 
 | Param | Description |
 | --- | --- |
-| key | The secret key to retrieve. |
+| key | The secret key to look up. |
 
 <a name="module_core/vltx--module.exports+has"></a>
 
