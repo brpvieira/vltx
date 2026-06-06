@@ -12,7 +12,7 @@ Store encrypted secrets in a file you can safely commit to source control, packa
 
 ```
 ┌─────────────────────────────────┐     ┌──────────────────┐
-│  .vltx  (commit to git)         │     │  .vltx.rsa      │
+│  .vltx  (commit to git)         │     │  .vltx.rsa       │
 │                                 │     │  (keep private)  │
 │  publicKey: "-----BEGIN..."     │     │                  │
 │  secrets:                       │  ←  │  4096-bit RSA    │
