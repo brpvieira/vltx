@@ -4,9 +4,15 @@
   "description": "simple secure secret storage",
   "author": "Bernardo Vieira",
   "keywords": [
+    "secrets",
+    "encryption",
     "env",
-    "secrets"
+    "security",
+    "vault"
   ],
+  "bugs": {
+    "url": "https://github.com/brpvieira/vltx/issues"
+  },
   "homepage": "https://github.com/brpvieira/vltx?tab=readme-ov-file",
   "repository": {
     "type": "git",
