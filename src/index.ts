@@ -8,38 +8,34 @@ export type { VltxConfig };
  const vaults = new Map<string, Vltx>();
 
 type VltxModuleConfig = VltxConfig & {
-    alias?: string,
-    inject?: boolean
+    alias?: string
 };
 
  const DEFAULTS = {
      alias: 'vltx',
-     inject: true
  } as const;
 
-function vaultTag(vault: Vltx, strings: TemplateStringsArray,
-     ...values: unknown[]): string {
-    if(values?.length > 0)  {
-        throw new Error('Interpolation in not allowed.');
-    }
-    if (!strings[0]) { return ''; }
-    return vault.get(strings[0]) || '';
-}
 
 /**
- * Initializes (or retrieves) a Vault for the given alias. When
- * `inject` is true, registers a `alias\`KEY\`` tag function on `global`.
+ * Initializes (or retrieves) a cached {@link Vltx} for the given alias.
  *
  * Calls with the same `alias` are idempotent — the first call creates
  * and caches the {@link Vltx}; subsequent calls return the cached instance.
  *
+ * Use {@link Vltx#tagFunction} on the returned instance to obtain a tag
+ * function you can assign to any identifier:
+ *
+ * ```js
+ * const secret = setup({ filename: 'production.vault' }).tagFunction;
+ * const dbUrl = secret`DB_URL`;
+ * ```
+ *
  * @param args - Configuration object.
  * @param args.filename - Path to the vault file; falls back to the
  *   `VLTX_FILE` environment variable, then `.vltx`.
- * @param args.alias - Name of the global tag function (default: `'vltx'`).
- * @param args.inject - Register the tag function on `global`
- *   (default: `true`). Pass `false` to skip global registration and
- *   use the returned {@link Vltx} directly.
+ * @param args.alias - Cache key used to identify this vault (default:
+ *   `'vltx'`). Repeated calls with the same alias return the same
+ *   instance.
  * @returns The initialized {@link Vltx} instance.
  */
 export function setup(args: VltxModuleConfig = {}) {
@@ -53,8 +49,5 @@ export function setup(args: VltxModuleConfig = {}) {
         vaults.set(opts.alias!, v);
     }
 
-    if (opts.inject && !(opts.alias! in global)) {
-        (global as Record<string, unknown>)[opts.alias!] = vaultTag.bind(null, v);
-    }
     return v;
 }

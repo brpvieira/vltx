@@ -814,3 +814,33 @@ describe('Map interface', () => {
         assert.equal(calls, 1);
     });
 });
+
+describe('tagFunction', () => {
+    it('returns the decrypted value for an existing key', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.replace('MY_KEY', 'hello');
+        expect(v.tagFunction`MY_KEY`).toBe('hello');
+    });
+
+    it('returns empty string for a missing key', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        expect(v.tagFunction`MISSING`).toBe('');
+    });
+
+    it('returns empty string when the template is empty', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        expect(v.tagFunction``).toBe('');
+    });
+
+    it('throws when interpolation values are passed', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        expect(() => v.tagFunction`before${'value'}after`).toThrow('Interpolation');
+    });
+
+    it('can be assigned to a variable and used as a standalone tag', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.replace('TOKEN', 'abc123');
+        const tag = v.tagFunction;
+        expect(tag`TOKEN`).toBe('abc123');
+    });
+});

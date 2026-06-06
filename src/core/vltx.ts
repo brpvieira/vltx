@@ -47,6 +47,31 @@ export type VltxConfig = {
     publicKey?: string | KeyObject | undefined
 } & PrivateKeyConfig;
 
+
+/**
+ * Tag function that looks up a secret by key in `vault`.
+ *
+ * This is the underlying implementation used by {@link Vltx#tagFunction}.
+ * Prefer the instance getter for typical use; call this directly only when
+ * you need to supply the vault explicitly.
+ *
+ * @param vault - The vault to read from.
+ * @param strings - Template strings array; only `strings[0]` is used as the
+ *   lookup key.
+ * @param values - Must be empty — interpolation is not supported.
+ * @returns The decrypted plaintext value, or an empty string if the key is
+ *   absent or the template is empty.
+ * @throws {Error} If interpolation values are passed.
+ */
+export function tagFunction(vault: Vltx, strings: TemplateStringsArray,
+     ...values: unknown[]): string {
+    if(values?.length > 0)  {
+        throw new Error('Interpolation in not allowed.');
+    }
+    if (!strings[0]) { return ''; }
+    return vault.get(strings[0]) || '';
+}
+
 /**
  * An encrypted key-value store that implements the
  * `Map<string, string>` interface.
@@ -362,10 +387,27 @@ export default class Vltx implements Map<string, string> {
      *   does not exist.
      */
     getRaw(key: string) : string | undefined {
-        if (this.#secrets.has(key)) {
+        if (this.has(key)) {
             return this.#secrets.get(key);
         }
         return undefined;
+    }
+
+    /**
+     * Returns a tag function bound to this vault instance.
+     *
+     * Assign it to any identifier to use it as a tagged template
+     * literal; the key is looked up in this vault and the decrypted
+     * value is returned. An unknown key or an empty template returns
+     * an empty string. Interpolation is not supported and will throw.
+     *
+     * ```js
+     * const secret = vault.tagFunction;
+     * const dbUrl = secret`DB_URL`;
+     * ```
+     */
+    get tagFunction() {
+        return tagFunction.bind(null, this);
     }
 
     /**

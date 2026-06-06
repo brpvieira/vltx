@@ -419,6 +419,8 @@ helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
             * [.getOrInsert(key, value)](#module_core/vltx--module.exports+getOrInsert) ⇒
             * [.getOrInsertComputed(key, callbackfn)](#module_core/vltx--module.exports+getOrInsertComputed) ⇒
         * _static_
+            * [.tagFunction(vault, strings, values)](#module_core/vltx--module.exports.tagFunction) ⇒
+                * [.tagFunction](#module_core/vltx--module.exports.tagFunction.tagFunction)
             * [.init(filename, privateKeyOpts)](#module_core/vltx--module.exports.init) ⇒
             * [.open(opts)](#module_core/vltx--module.exports.open) ⇒
             * [.openForWriting(opts)](#module_core/vltx--module.exports.openForWriting) ⇒
@@ -806,6 +808,45 @@ Returns the value for `key`, inserting the result of
 | key | The key to look up or insert. |
 | callbackfn | Factory called with `key` to produce the   default value. |
 
+<a name="module_core/vltx--module.exports.tagFunction"></a>
+
+#### module.exports.tagFunction(vault, strings, values) ⇒
+Tag function that looks up a secret by key in `vault`.
+
+This is the underlying implementation used by [Vltx#tagFunction](Vltx#tagFunction).
+Prefer the instance getter for typical use; call this directly only when
+you need to supply the vault explicitly.
+
+**Kind**: static method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+**Returns**: The decrypted plaintext value, or an empty string if the key is
+  absent or the template is empty.  
+**Throws**:
+
+- <code>Error</code> If interpolation values are passed.
+
+
+| Param | Description |
+| --- | --- |
+| vault | The vault to read from. |
+| strings | Template strings array; only `strings[0]` is used as the   lookup key. |
+| values | Must be empty — interpolation is not supported. |
+
+<a name="module_core/vltx--module.exports.tagFunction.tagFunction"></a>
+
+##### tagFunction.tagFunction
+Returns a tag function bound to this vault instance.
+
+Assign it to any identifier to use it as a tagged template
+literal; the key is looked up in this vault and the decrypted
+value is returned. An unknown key or an empty template returns
+an empty string. Interpolation is not supported and will throw.
+
+```js
+const secret = vault.tagFunction;
+const dbUrl = secret`DB_URL`;
+```
+
+**Kind**: static property of [<code>tagFunction</code>](#module_core/vltx--module.exports.tagFunction)  
 <a name="module_core/vltx--module.exports.init"></a>
 
 #### module.exports.init(filename, privateKeyOpts) ⇒

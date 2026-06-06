@@ -145,7 +145,7 @@ VLTX_KEY_FILE=~/.keys/prod.rsa
 
 ## Using secrets in your application
 
-Import `setup` from the package and call it once at startup. It loads the vault and — by default — registers a tagged template literal function on the global scope so your secrets are accessible anywhere without threading a reference through your codebase.
+Import `setup` from the package and call it once at startup. It loads the vault and returns a `Vltx` instance. Use the `tagFunction` property to obtain a tagged template literal function you can assign to any identifier.
 
 ### Quick start
 
@@ -153,63 +153,55 @@ Import `setup` from the package and call it once at startup. It loads the vault 
 ```js
 import { setup } from 'vltx';
 
-setup(); // reads .vltx and .vltx.rsa from cwd, registers global `vltx` tag
+// reads .vltx and .vltx.rsa from cwd
+const secret = setup().tagFunction;
 ```
 
 **CommonJS (require)**
 ```js
 const { setup } = require('vltx');
 
-setup(); // reads .vltx and .vltx.rsa from cwd, registers global `vltx` tag
+const secret = setup().tagFunction;
 ```
 
 ```js
-// anywhere in your app — no import needed
-const db = new Database(vltx`DB_URL`);
-const client = new ApiClient(vltx`API_KEY`);
+const db = new Database(secret`DB_URL`);
+const client = new ApiClient(secret`API_KEY`);
 ```
 
-The tag returns the decrypted string for a known key, or an empty string for an unknown one.
+The tag function returns the decrypted string for a known key, or an empty string for an unknown one.
 
 ---
 
-### Custom alias and path
+### Custom path and identifier
 
 **ESM**
 ```js
 import { setup } from 'vltx';
 
-setup({
-    filename: 'secrets/production.vault',
-    alias: 'secret',        // registers global.secret instead of global.vltx
-});
+const secret = setup({ filename: 'secrets/production.vault' }).tagFunction;
+
+const db = new Database(secret`DB_URL`);
 ```
 
 **CommonJS**
 ```js
 const { setup } = require('vltx');
 
-setup({
-    filename: 'secrets/production.vault',
-    alias: 'secret',
-});
-```
-
-```js
-const db = new Database(secret`DB_URL`);
+const secret = setup({ filename: 'secrets/production.vault' }).tagFunction;
 ```
 
 ---
 
-### Without the global tag
+### Using `get()` directly
 
-If you prefer explicit access over global injection, disable injection and use the returned `Vltx` instance directly:
+For explicit key lookups without a template literal, call `vault.get()`:
 
 **ESM**
 ```js
 import { setup } from 'vltx';
 
-const vault = setup({ inject: false });
+const vault = setup();
 
 const dbUrl  = vault.get('DB_URL');
 const apiKey = vault.get('API_KEY');
@@ -219,7 +211,7 @@ const apiKey = vault.get('API_KEY');
 ```js
 const { setup } = require('vltx');
 
-const vault = setup({ inject: false });
+const vault = setup();
 
 const dbUrl  = vault.get('DB_URL');
 const apiKey = vault.get('API_KEY');
@@ -229,11 +221,13 @@ const apiKey = vault.get('API_KEY');
 
 ### TypeScript
 
-When using the global tag in TypeScript, declare the tag function in a `.d.ts` file so the compiler knows it exists:
+The `tagFunction` property is typed automatically — no declaration file needed:
 
 ```ts
-// globals.d.ts
-declare function vltx(strings: TemplateStringsArray): string;
+import { setup } from 'vltx';
+
+const secret = setup().tagFunction;
+const dbUrl: string = secret`DB_URL`;
 ```
 
 ---
@@ -242,9 +236,8 @@ declare function vltx(strings: TemplateStringsArray): string;
 
 | Option     | Type      | Default   | Description                           |
 |------------|-----------|-----------|---------------------------------------|
-| `filename` | `string`  | env / `'./.vltx'` | Path to the vault file                |
-| `alias`    | `string`  | `'vltx'` | Name of the global tag function       |
-| `inject`   | `boolean` | `true`    | Register the tag function on `global` |
+| `filename` | `string`  | env / `'./.vltx'` | Path to the vault file           |
+| `alias`    | `string`  | `'vltx'`  | Cache key for this vault instance     |
 
 `setup()` is idempotent — repeated calls with the same alias return the cached `Vltx` instance. The vault file path is resolved from `filename`, then `VLTX_FILE`, then `.vltx` in the current directory.
 

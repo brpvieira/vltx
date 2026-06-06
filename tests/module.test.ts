@@ -18,12 +18,8 @@ beforeAll(() => {
 
 let counter = 0;
 const nextAlias = () => `_test_alias_${counter++}`;
-const injected: string[] = [];
 
 afterEach(() => {
-    for (const a of injected.splice(0)) {
-        delete (global as Record<string, unknown>)[a];
-    }
     vi.clearAllMocks();
 });
 
@@ -37,92 +33,50 @@ function makeVltxFile(secrets: Record<string, string>): string {
     return path;
 }
 
-function getTag(alias: string) {
-    return (global as Record<string, unknown>)[alias] as
-        (_strings: TemplateStringsArray, ..._values: unknown[]) => string;
-}
-
 describe('setup', () => {
     it('returns a Vltx instance', () => {
-        const alias = nextAlias();
-        injected.push(alias);
-        expect(setup({ alias })).toBeInstanceOf(Vltx);
+        expect(setup({ alias: nextAlias() })).toBeInstanceOf(Vltx);
     });
 
     it('returns the same cached instance on repeated calls', () => {
         const alias = nextAlias();
-        injected.push(alias);
-        const v1 = setup({ alias, inject: false });
-        const v2 = setup({ alias, inject: false });
+        const v1 = setup({ alias });
+        const v2 = setup({ alias });
         expect(v1).toBe(v2);
-    });
-
-    it('injects a tag function on global by default', () => {
-        const alias = nextAlias();
-        injected.push(alias);
-        setup({ alias });
-        expect(typeof (global as Record<string, unknown>)[alias]).toBe('function');
-    });
-
-    it('does not inject when inject is false', () => {
-        const alias = nextAlias();
-        setup({ alias, inject: false });
-        expect((global as Record<string, unknown>)[alias]).toBeUndefined();
-    });
-
-    it('does not overwrite an existing global', () => {
-        const alias = nextAlias();
-        const original = {};
-        (global as Record<string, unknown>)[alias] = original;
-        injected.push(alias);
-        setup({ alias });
-        expect((global as Record<string, unknown>)[alias]).toBe(original);
     });
 
     it('loads the vault from the provided filename', () => {
         const vaultPath = makeVltxFile({ KEY: 'VALUE' });
-        const alias = nextAlias();
-        injected.push(alias);
-        expect(setup({ alias, filename: vaultPath }).has('KEY')).toBe(true);
+        expect(setup({ alias: nextAlias(), filename: vaultPath }).has('KEY')).toBe(true);
     });
 
     it('creates a Vltx with empty config when getConfig returns no filename', async () => {
         const mod = await import('../src/core/env.js');
         vi.mocked(mod.default).mockReturnValueOnce({});
-        const alias = nextAlias();
-        injected.push(alias);
-        expect(setup({ alias, inject: false })).toBeInstanceOf(Vltx);
+        expect(setup({ alias: nextAlias() })).toBeInstanceOf(Vltx);
     });
 });
 
-describe('tag function', () => {
+describe('tagFunction via setup', () => {
     it('returns the secret value for an existing key', () => {
         const vaultPath = makeVltxFile({ SECRET: 'hello' });
-        const alias = nextAlias();
-        injected.push(alias);
-        setup({ alias, filename: vaultPath, privateKey: privateKeyPem });
-        expect(getTag(alias)`SECRET`).toBe('hello');
+        const tag = setup({ alias: nextAlias(), filename: vaultPath, privateKey: privateKeyPem }).tagFunction;
+        expect(tag`SECRET`).toBe('hello');
     });
 
     it('returns empty string for a missing key', () => {
         const vaultPath = makeVltxFile({});
-        const alias = nextAlias();
-        injected.push(alias);
-        setup({ alias, filename: vaultPath, privateKey: privateKeyPem });
-        expect(getTag(alias)`MISSING`).toBe('');
+        const tag = setup({ alias: nextAlias(), filename: vaultPath, privateKey: privateKeyPem }).tagFunction;
+        expect(tag`MISSING`).toBe('');
     });
 
     it('returns empty string when the key is empty', () => {
-        const alias = nextAlias();
-        injected.push(alias);
-        setup({ alias });
-        expect(getTag(alias)``).toBe('');
+        const tag = setup({ alias: nextAlias() }).tagFunction;
+        expect(tag``).toBe('');
     });
 
     it('throws when interpolation values are passed', () => {
-        const alias = nextAlias();
-        injected.push(alias);
-        setup({ alias });
-        expect(() => getTag(alias)`before${'value'}after`).toThrow('Interpolation');
+        const tag = setup({ alias: nextAlias() }).tagFunction;
+        expect(() => tag`before${'value'}after`).toThrow('Interpolation');
     });
 });
