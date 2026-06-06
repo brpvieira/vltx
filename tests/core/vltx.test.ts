@@ -1,7 +1,7 @@
 import { assert, beforeAll, describe, expect, it } from 'vitest';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import Vltx from '../../src/core/vltx.js';
+import Vltx, { MAX_SECRET_BYTES } from '../../src/core/vltx.js';
 import { generateRSAKeyPair, parsePrivateKey, derivePublicKey } from '../../src/core/rsa.js';
 
 let privateKeyPem: string;
@@ -319,6 +319,30 @@ describe('Vltx.set / Vltx.replace', () => {
         const v = new Vltx({ privateKey: privateKeyPem });
         v.replace('secret', 'my-plaintext');
         expect(v.get('secret')).eq('my-plaintext');
+    });
+
+    it('set throws when value exceeds MAX_SECRET_BYTES', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        const oversized = 'a'.repeat(MAX_SECRET_BYTES + 1);
+        assert.throws(() => v.set('k', oversized), /maximum secret size/);
+    });
+
+    it('replace throws when value exceeds MAX_SECRET_BYTES', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        const oversized = 'a'.repeat(MAX_SECRET_BYTES + 1);
+        assert.throws(() => v.replace('k', oversized), /maximum secret size/);
+    });
+
+    it('set accepts a value exactly at MAX_SECRET_BYTES', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        const atLimit = 'a'.repeat(MAX_SECRET_BYTES);
+        assert.doesNotThrow(() => v.set('k', atLimit));
+    });
+
+    it('replace accepts a value exactly at MAX_SECRET_BYTES', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        const atLimit = 'a'.repeat(MAX_SECRET_BYTES);
+        assert.doesNotThrow(() => v.replace('k', atLimit));
     });
 });
 

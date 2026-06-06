@@ -562,6 +562,10 @@ public key and secrets.
 **Throws**:
 
 - <code>Error</code> If no filename is available.
+- <code>Error</code> If the vault file is missing or has an invalid
+  `publicKey` field.
+- <code>Error</code> If the vault file is missing the `secrets`
+  field.
 
 
 | Param | Description |
@@ -700,6 +704,8 @@ existing key.
 - <code>Error</code> If no public key is available.
 - <code>Error</code> If `key` already exists — use [replace](replace)
   to overwrite.
+- <code>Error</code> If `value` exceeds [MAX_SECRET_BYTES](MAX_SECRET_BYTES)
+  UTF-8 bytes.
 
 
 | Param | Description |
@@ -720,6 +726,8 @@ population and updates.
 **Throws**:
 
 - <code>Error</code> If no public key is available.
+- <code>Error</code> If `value` exceeds [MAX_SECRET_BYTES](MAX_SECRET_BYTES)
+  UTF-8 bytes.
 
 
 | Param | Description |
@@ -730,7 +738,14 @@ population and updates.
 <a name="module_core/vltx--module.exports+entries"></a>
 
 #### module.exports.entries()
-Returns an iterator over `[key, value]` pairs in insertion order.
+Returns an iterator over `[key, encryptedValue]` pairs in insertion
+order.
+
+**Note:** values are always the raw ciphertext stored on disk,
+regardless of whether a private key is loaded. Unlike [get](get),
+no decryption occurs. Spread or destructure with care:
+`Object.fromEntries(vault)` and `for (const [k, v] of vault.entries())`
+will produce encrypted base64 blobs, not plaintext.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 <a name="module_core/vltx--module.exports+keys"></a>
@@ -743,6 +758,11 @@ Returns an iterator over the secret keys in insertion order.
 
 #### module.exports.values()
 Returns an iterator over raw (encrypted) values in insertion order.
+
+**Note:** values are always the raw ciphertext stored on disk,
+regardless of whether a private key is loaded. Unlike [get](get),
+no decryption occurs. Use [get](get) to retrieve a decrypted value
+for a specific key.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 <a name="module_core/vltx--module.exports+getOrInsert"></a>

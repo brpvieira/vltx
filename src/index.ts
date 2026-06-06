@@ -1,9 +1,9 @@
- import Vltx, { type VltxConfig } from './core/vltx.js';
+import Vltx, { MAX_SECRET_BYTES, type VltxConfig } from './core/vltx.js';
 import getConfig from './core/env.js';
 
- export { Vltx };
- export default Vltx;
- export type { VltxConfig };
+export { Vltx, MAX_SECRET_BYTES };
+export default Vltx;
+export type { VltxConfig };
 
  const vaults = new Map<string, Vltx>();
 

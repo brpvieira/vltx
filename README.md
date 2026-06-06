@@ -78,6 +78,8 @@ npx vltx add SMTP_PASSWORD "hunter2"
 npx vltx replace API_KEY "sk-live-newkey456"
 ```
 
+Each secret value is limited to **190 UTF-8 bytes**. Values longer than this will be rejected at write time.
+
 ---
 
 ### 3. List keys
@@ -322,6 +324,9 @@ embedded in the file is loaded automatically, enabling encryption.
 No decryption capability is available. Useful in environments that only need
 to write secrets (e.g., a CI pipeline that rotates credentials).
 
+`set` throws if the key already exists — use `replace` to overwrite. Both
+methods throw if the value exceeds **190 UTF-8 bytes** (`MAX_SECRET_BYTES`).
+
 **ESM**
 ```js
 import { Vltx } from 'vltx';
@@ -439,5 +444,6 @@ const v = new Vltx({
 - Encryption uses **RSA-OAEP-SHA-256** (Node.js native `crypto` — no third-party crypto libraries).
 - Keys are **4096-bit**. Private keys can be protected with **AES-256-CBC** via a passphrase.
 - Each value is salted with random bytes and a timestamp before encryption, so the same plaintext always produces a different ciphertext.
+- Secret values are limited to **190 UTF-8 bytes** — a constraint of RSA block encryption (the stuffed form must fit the 446-byte OAEP payload). Use a reference (e.g. a filename or URL) for larger payloads.
 - The vault file contains only the public key and ciphertext — it is safe to commit, distribute, or embed in container images.
 - The private key is **never** written into the vault file. Guard it as you would a production password.

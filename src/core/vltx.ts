@@ -27,6 +27,8 @@ export type PrivateKeyConfig = {
     passphrase?: string | undefined,
 };
 
+export const MAX_SECRET_BYTES = 190 as const;
+
 /**
  * Configuration options for constructing a {@link Vltx}.
  * Supply `filename` to load an existing vault file on disk.
@@ -347,6 +349,11 @@ export default class Vltx implements Map<string, string> {
         if (!this.#publicKey) {
             throw new Error('Public key is required to update the vault');
         }
+
+        if (Buffer.byteLength(value, 'utf8') > MAX_SECRET_BYTES) {
+            throw new Error(`Value exceeds maximum secret size of ${MAX_SECRET_BYTES} bytes.`);
+        }
+
         const stuffed = stuffString(value);
         const encrypted = encrypt(this.#publicKey, stuffed)
             .toString('base64');
@@ -365,6 +372,8 @@ export default class Vltx implements Map<string, string> {
      * @throws {Error} If no public key is available.
      * @throws {Error} If `key` already exists — use {@link replace}
      *   to overwrite.
+     * @throws {Error} If `value` exceeds {@link MAX_SECRET_BYTES}
+     *   UTF-8 bytes.
      */
     set(key: string, value: string): this {
         if (this.has(key)) {
@@ -385,6 +394,8 @@ export default class Vltx implements Map<string, string> {
      * @param value - The plaintext value to encrypt and store.
      * @returns `this` for chaining.
      * @throws {Error} If no public key is available.
+     * @throws {Error} If `value` exceeds {@link MAX_SECRET_BYTES}
+     *   UTF-8 bytes.
      */
     replace(key: string, value: string): this {
         return this.#doSet(key, value);
