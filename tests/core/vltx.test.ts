@@ -1,5 +1,5 @@
 import { assert, beforeAll, describe, expect, it } from 'vitest';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import Vltx from '../../src/core/vltx.js';
 import { generateRSAKeyPair, parsePrivateKey, derivePublicKey } from '../../src/core/rsa.js';
@@ -315,6 +315,7 @@ describe('Vltx.init', () => {
         Vltx.init(vaultPath, { privateKeyFilename: keyPath });
         assert(existsSync(keyPath));
         assert(existsSync(vaultPath));
+        assert.equal(statSync(keyPath).mode & 0o777, 0o600);
     });
 
     it('uses an existing private key file without regenerating', () => {

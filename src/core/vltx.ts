@@ -465,7 +465,8 @@ export default class Vltx implements Map<string, string> {
         const { privateKeyFilename, passphrase } = privateKeyOpts;
         if (privateKeyFilename && !existsSync(privateKeyFilename)) {
             const { privateKey } = generateRSAKeyPair(passphrase);
-            writeFileSync(privateKeyFilename, privateKey as string);
+            writeFileSync(privateKeyFilename, privateKey as string,
+                { mode: 0o600 });
         }
 
         const v = new Vltx({ ...privateKeyOpts, filename });
