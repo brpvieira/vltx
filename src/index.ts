@@ -1,7 +1,11 @@
  import Vltx, { type VltxConfig } from './core/vltx.js';
 import getConfig from './core/env.js';
 
-const vaults = new Map<string, Vltx>();
+ export { Vltx };
+ export default Vltx;
+ export type { VltxConfig };
+
+ const vaults = new Map<string, Vltx>();
 
 type VltxModuleConfig = VltxConfig & {
     alias?: string,

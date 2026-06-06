@@ -1,8 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { setup } from '../src/index.js';
-import Vltx from '../src/core/vltx.js';
+import { Vltx, setup } from '../src/index.js';
 import { generateRSAKeyPair } from '../src/core/rsa.js';
 
 vi.mock('../src/core/env.js', () => ({
