@@ -409,7 +409,7 @@ const v = new Vltx({
 
 ## Security notes
 
-- Encryption uses **RSA-OAEP** (Node.js native `crypto` — no third-party crypto libraries).
+- Encryption uses **RSA-OAEP-SHA-256** (Node.js native `crypto` — no third-party crypto libraries).
 - Keys are **4096-bit**. Private keys can be protected with **AES-256-CBC** via a passphrase.
 - Each value is salted with random bytes and a timestamp before encryption, so the same plaintext always produces a different ciphertext.
 - The vault file contains only the public key and ciphertext — it is safe to commit, distribute, or embed in container images.
