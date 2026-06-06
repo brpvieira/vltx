@@ -4,6 +4,9 @@ const shared = {
   target: 'node16',
   platform: 'node',
   sourcemap: true,
+  esbuildOptions(options) {
+    options.sourcesContent = false;
+  },
   external: ['dotenv', 'yargs'],
   splitting: false,
   minify: false,
