@@ -11,9 +11,10 @@
  * @module
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { KeyObject, privateDecrypt, publicEncrypt } from 'node:crypto';
+import { KeyObject } from 'node:crypto';
 import { parsePrivateKey, parsePublicKey, derivePublicKey,
-    DEFAULT_PUBLIC_ENCODING, generateRSAKeyPair } from './rsa.js';
+    DEFAULT_PUBLIC_ENCODING, generateRSAKeyPair,
+    encrypt, decrypt } from './rsa.js';
 import { isNodeError, stuffString, unstuffString } from './util.js';
 
 /** Options for supplying a private key to a {@link Vltx}. */
@@ -316,7 +317,7 @@ export default class Vltx implements Map<string, string> {
         const raw = this.#secrets.get(key);
         if (!raw || !this.canDecrypt) { return raw; }
         const buf = Buffer.from(raw, 'base64');
-        const decrypted = privateDecrypt(this.#privateKey!, buf)
+        const decrypted = decrypt(this.#privateKey!, buf)
             .toString('utf8');
         return unstuffString(decrypted);
     }
@@ -336,7 +337,7 @@ export default class Vltx implements Map<string, string> {
             throw new Error('Public key is required to update the vault');
         }
         const stuffed = stuffString(value);
-        const encrypted = publicEncrypt(this.#publicKey, stuffed)
+        const encrypted = encrypt(this.#publicKey, stuffed)
             .toString('base64');
         this.#secrets.set(key, encrypted);
         return this;

@@ -25,7 +25,7 @@ parse PEM-encoded keys into <code>KeyObject</code> instances.</p>
 ensure each RSA encryption of the same plaintext produces a unique
 ciphertext, and a Node.js <code>ErrnoException</code> type guard.</p>
 </dd>
-<dt><a href="#module_core/vault">core/vault</a></dt>
+<dt><a href="#module_core/vltx">core/vltx</a></dt>
 <dd><p>Core <a href="Vltx">Vltx</a> class and associated configuration types.</p>
 <p>A <code>Vltx</code> is an RSA-encrypted key-value store backed by a JSON file.
 Values are encrypted with the embedded public key and decrypted on
@@ -212,6 +212,8 @@ parse PEM-encoded keys into `KeyObject` instances.
     * [.parsePublicKey(str)](#module_core/rsa.parsePublicKey) ⇒
     * [.parsePrivateKey(str, passphrase)](#module_core/rsa.parsePrivateKey) ⇒
     * [.derivePublicKey(input)](#module_core/rsa.derivePublicKey) ⇒
+    * [.encrypt(key, data)](#module_core/rsa.encrypt) ⇒
+    * [.decrypt(key, data)](#module_core/rsa.decrypt) ⇒
 
 <a name="module_core/rsa.DEFAULT_PRIVATE_ENCODING"></a>
 
@@ -281,6 +283,32 @@ Derives a public key from an existing key object, PEM/DER string, or Buffer.
 | Param | Description |
 | --- | --- |
 | input | The source key material to derive the public key from. |
+
+<a name="module_core/rsa.encrypt"></a>
+
+### core/rsa.encrypt(key, data) ⇒
+Encrypts a plaintext string using RSA-OAEP-SHA-256.
+
+**Kind**: static method of [<code>core/rsa</code>](#module_core/rsa)  
+**Returns**: A `Buffer` containing the RSA ciphertext.  
+
+| Param | Description |
+| --- | --- |
+| key | A public `KeyObject` used to encrypt. |
+| data | Plaintext string to encrypt. |
+
+<a name="module_core/rsa.decrypt"></a>
+
+### core/rsa.decrypt(key, data) ⇒
+Decrypts RSA ciphertext produced by [encrypt](encrypt) using RSA-OAEP-SHA-256.
+
+**Kind**: static method of [<code>core/rsa</code>](#module_core/rsa)  
+**Returns**: A `Buffer` containing the recovered plaintext.  
+
+| Param | Description |
+| --- | --- |
+| key | A private `KeyObject` used to decrypt. |
+| data | Ciphertext buffer or string to decrypt. |
 
 <a name="module_core/util"></a>
 
@@ -364,9 +392,9 @@ Type guard that narrows `error` to `NodeJS.ErrnoException`.
 | --- | --- |
 | error | The value to test. |
 
-<a name="module_core/vault"></a>
+<a name="module_core/vltx"></a>
 
-## core/vault
+## core/vltx
 Core [Vltx](Vltx) class and associated configuration types.
 
 A `Vltx` is an RSA-encrypted key-value store backed by a JSON file.
@@ -378,42 +406,42 @@ demand when a private key is supplied. The class implements the
 helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
 
 
-* [core/vault](#module_core/vault)
-    * [module.exports](#exp_module_core/vault--module.exports) ⏏
-        * [new module.exports(opts)](#new_module_core/vault--module.exports_new)
+* [core/vltx](#module_core/vltx)
+    * [module.exports](#exp_module_core/vltx--module.exports) ⏏
+        * [new module.exports(opts)](#new_module_core/vltx--module.exports_new)
         * _instance_
-            * [.publicKey](#module_core/vault--module.exports+publicKey)
-            * [.canEncrypt](#module_core/vault--module.exports+canEncrypt)
-            * [.canDecrypt](#module_core/vault--module.exports+canDecrypt)
-            * [.size](#module_core/vault--module.exports+size)
-            * [.setPrivateKey(opts)](#module_core/vault--module.exports+setPrivateKey) ⇒
-            * [.setPublicKey(key)](#module_core/vault--module.exports+setPublicKey) ⇒
-            * [.lock()](#module_core/vault--module.exports+lock) ⇒
-            * [.unlock(opts)](#module_core/vault--module.exports+unlock) ⇒
-            * [.read(filename)](#module_core/vault--module.exports+read) ⇒
-            * [.tryRead(filename)](#module_core/vault--module.exports+tryRead) ⇒
-            * [.write(filename)](#module_core/vault--module.exports+write) ⇒
-            * [.load(secrets)](#module_core/vault--module.exports+load) ⇒
-            * [.toJSON()](#module_core/vault--module.exports+toJSON) ⇒
-            * [.clear()](#module_core/vault--module.exports+clear)
-            * [.delete(key)](#module_core/vault--module.exports+delete) ⇒
-            * [.forEach(callbackfn, thisArg)](#module_core/vault--module.exports+forEach)
-            * [.get(key)](#module_core/vault--module.exports+get) ⇒
-            * [.has(key)](#module_core/vault--module.exports+has)
-            * [.set(key, value)](#module_core/vault--module.exports+set) ⇒
-            * [.replace(key, value)](#module_core/vault--module.exports+replace) ⇒
-            * [.entries()](#module_core/vault--module.exports+entries)
-            * [.keys()](#module_core/vault--module.exports+keys)
-            * [.values()](#module_core/vault--module.exports+values)
-            * [.getOrInsert(key, value)](#module_core/vault--module.exports+getOrInsert) ⇒
-            * [.getOrInsertComputed(key, callbackfn)](#module_core/vault--module.exports+getOrInsertComputed) ⇒
+            * [.publicKey](#module_core/vltx--module.exports+publicKey)
+            * [.canEncrypt](#module_core/vltx--module.exports+canEncrypt)
+            * [.canDecrypt](#module_core/vltx--module.exports+canDecrypt)
+            * [.size](#module_core/vltx--module.exports+size)
+            * [.setPrivateKey(opts)](#module_core/vltx--module.exports+setPrivateKey) ⇒
+            * [.setPublicKey(key)](#module_core/vltx--module.exports+setPublicKey) ⇒
+            * [.lock()](#module_core/vltx--module.exports+lock) ⇒
+            * [.unlock(opts)](#module_core/vltx--module.exports+unlock) ⇒
+            * [.read(filename)](#module_core/vltx--module.exports+read) ⇒
+            * [.tryRead(filename)](#module_core/vltx--module.exports+tryRead) ⇒
+            * [.write(filename)](#module_core/vltx--module.exports+write) ⇒
+            * [.load(secrets)](#module_core/vltx--module.exports+load) ⇒
+            * [.toJSON()](#module_core/vltx--module.exports+toJSON) ⇒
+            * [.clear()](#module_core/vltx--module.exports+clear)
+            * [.delete(key)](#module_core/vltx--module.exports+delete) ⇒
+            * [.forEach(callbackfn, thisArg)](#module_core/vltx--module.exports+forEach)
+            * [.get(key)](#module_core/vltx--module.exports+get) ⇒
+            * [.has(key)](#module_core/vltx--module.exports+has)
+            * [.set(key, value)](#module_core/vltx--module.exports+set) ⇒
+            * [.replace(key, value)](#module_core/vltx--module.exports+replace) ⇒
+            * [.entries()](#module_core/vltx--module.exports+entries)
+            * [.keys()](#module_core/vltx--module.exports+keys)
+            * [.values()](#module_core/vltx--module.exports+values)
+            * [.getOrInsert(key, value)](#module_core/vltx--module.exports+getOrInsert) ⇒
+            * [.getOrInsertComputed(key, callbackfn)](#module_core/vltx--module.exports+getOrInsertComputed) ⇒
         * _static_
-            * [.init(filename, privateKeyOpts)](#module_core/vault--module.exports.init) ⇒
-            * [.open(opts)](#module_core/vault--module.exports.open) ⇒
-            * [.openForWriting(opts)](#module_core/vault--module.exports.openForWriting) ⇒
-            * [.openForReading(opts)](#module_core/vault--module.exports.openForReading) ⇒
+            * [.init(filename, privateKeyOpts)](#module_core/vltx--module.exports.init) ⇒
+            * [.open(opts)](#module_core/vltx--module.exports.open) ⇒
+            * [.openForWriting(opts)](#module_core/vltx--module.exports.openForWriting) ⇒
+            * [.openForReading(opts)](#module_core/vltx--module.exports.openForReading) ⇒
 
-<a name="exp_module_core/vault--module.exports"></a>
+<a name="exp_module_core/vltx--module.exports"></a>
 
 ### module.exports ⏏
 An encrypted key-value store that implements the
@@ -429,7 +457,7 @@ Vltx files are persisted as JSON containing the public key and
 the encrypted secrets map.
 
 **Kind**: Exported class  
-<a name="new_module_core/vault--module.exports_new"></a>
+<a name="new_module_core/vltx--module.exports_new"></a>
 
 #### new module.exports(opts)
 Creates a new Vltx instance.
@@ -446,33 +474,33 @@ automatically when not already loaded from a file.
 | --- | --- |
 | opts | Configuration options including key material and   an optional file path. |
 
-<a name="module_core/vault--module.exports+publicKey"></a>
+<a name="module_core/vltx--module.exports+publicKey"></a>
 
 #### module.exports.publicKey
 The vault's public key, or `undefined` if none has been set.
 
-**Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-<a name="module_core/vault--module.exports+canEncrypt"></a>
+**Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+<a name="module_core/vltx--module.exports+canEncrypt"></a>
 
 #### module.exports.canEncrypt
 `true` when a public key is available and the vault can
 encrypt new secrets.
 
-**Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-<a name="module_core/vault--module.exports+canDecrypt"></a>
+**Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+<a name="module_core/vltx--module.exports+canDecrypt"></a>
 
 #### module.exports.canDecrypt
 `true` when a private key is available and the vault can
 decrypt stored secrets.
 
-**Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-<a name="module_core/vault--module.exports+size"></a>
+**Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+<a name="module_core/vltx--module.exports+size"></a>
 
 #### module.exports.size
 Number of secrets currently stored in the vault.
 
-**Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-<a name="module_core/vault--module.exports+setPrivateKey"></a>
+**Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+<a name="module_core/vltx--module.exports+setPrivateKey"></a>
 
 #### module.exports.setPrivateKey(opts) ⇒
 Configures the vault's private key from the supplied options.
@@ -480,35 +508,35 @@ Accepts a `KeyObject` directly, a PEM string, or a path to a
 PEM file. Has no effect when none of the key fields are
 provided.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 
 | Param | Description |
 | --- | --- |
 | opts | Private key material and optional passphrase. |
 
-<a name="module_core/vault--module.exports+setPublicKey"></a>
+<a name="module_core/vltx--module.exports+setPublicKey"></a>
 
 #### module.exports.setPublicKey(key) ⇒
 Sets the vault's public key, enabling encryption.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 
 | Param | Description |
 | --- | --- |
 | key | A parsed RSA public `KeyObject`. |
 
-<a name="module_core/vault--module.exports+lock"></a>
+<a name="module_core/vltx--module.exports+lock"></a>
 
 #### module.exports.lock() ⇒
 Removes the private key, leaving the vault in encrypt-only
 mode. Useful for limiting the window during which key
 material is held in memory.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
-<a name="module_core/vault--module.exports+unlock"></a>
+<a name="module_core/vltx--module.exports+unlock"></a>
 
 #### module.exports.unlock(opts) ⇒
 Loads a private key into the vault, enabling decryption.
@@ -516,20 +544,20 @@ When no public key is already loaded, it is derived
 automatically from the private key. Has no effect when no
 key fields in `opts` are set.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 
 | Param | Description |
 | --- | --- |
 | opts | Private key material and optional passphrase. |
 
-<a name="module_core/vault--module.exports+read"></a>
+<a name="module_core/vltx--module.exports+read"></a>
 
 #### module.exports.read(filename) ⇒
 Reads and parses a vault JSON file, replacing the current
 public key and secrets.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 **Throws**:
 
@@ -540,13 +568,13 @@ public key and secrets.
 | --- | --- |
 | filename | Path to the vault file. Falls back to the   filename supplied at construction. |
 
-<a name="module_core/vault--module.exports+tryRead"></a>
+<a name="module_core/vltx--module.exports+tryRead"></a>
 
 #### module.exports.tryRead(filename) ⇒
 Reads a vault file like [read](read), but silently ignores the
 file not existing (`ENOENT`). All other errors are re-thrown.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 **Throws**:
 
@@ -557,12 +585,12 @@ file not existing (`ENOENT`). All other errors are re-thrown.
 | --- | --- |
 | filename | Path to the vault file. Falls back to the   filename supplied at construction. |
 
-<a name="module_core/vault--module.exports+write"></a>
+<a name="module_core/vltx--module.exports+write"></a>
 
 #### module.exports.write(filename) ⇒
 Serializes the vault (public key + secrets) to a JSON file.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 **Throws**:
 
@@ -573,41 +601,41 @@ Serializes the vault (public key + secrets) to a JSON file.
 | --- | --- |
 | filename | Destination path. Falls back to the filename   supplied at construction. |
 
-<a name="module_core/vault--module.exports+load"></a>
+<a name="module_core/vltx--module.exports+load"></a>
 
 #### module.exports.load(secrets) ⇒
 Replaces the in-memory secrets map with the provided key-value
 pairs. Existing entries are cleared before loading.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 
 | Param | Description |
 | --- | --- |
 | secrets | Plain object whose entries are loaded as   secrets. |
 
-<a name="module_core/vault--module.exports+toJSON"></a>
+<a name="module_core/vltx--module.exports+toJSON"></a>
 
 #### module.exports.toJSON() ⇒
 Returns a plain-object representation of the vault suitable
 for JSON serialization. Secrets are sorted by key for
 deterministic output.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: An object with a PEM `publicKey` string (or `null`)
   and the `secrets` map.  
-<a name="module_core/vault--module.exports+clear"></a>
+<a name="module_core/vltx--module.exports+clear"></a>
 
 #### module.exports.clear()
 Removes all secrets from the vault.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-<a name="module_core/vault--module.exports+delete"></a>
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+<a name="module_core/vltx--module.exports+delete"></a>
 
 #### module.exports.delete(key) ⇒
 Removes the secret with the given key.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `true` if the key existed and was removed, `false`
   otherwise.  
 
@@ -615,20 +643,20 @@ Removes the secret with the given key.
 | --- | --- |
 | key | The key to remove. |
 
-<a name="module_core/vault--module.exports+forEach"></a>
+<a name="module_core/vltx--module.exports+forEach"></a>
 
 #### module.exports.forEach(callbackfn, thisArg)
 Executes `callbackfn` once for each key-value pair in
 insertion order.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 
 | Param | Description |
 | --- | --- |
 | callbackfn | Function invoked with `(value, key, map)`. |
 | thisArg | Value used as `this` inside the callback. |
 
-<a name="module_core/vault--module.exports+get"></a>
+<a name="module_core/vltx--module.exports+get"></a>
 
 #### module.exports.get(key) ⇒
 Returns the value for `key`.
@@ -637,7 +665,7 @@ decrypted before being returned.
 When no private key is available the raw stored string is
 returned as-is.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: The (decrypted) value, or `undefined` if the key
   does not exist.  
 
@@ -645,19 +673,19 @@ returned as-is.
 | --- | --- |
 | key | The secret key to retrieve. |
 
-<a name="module_core/vault--module.exports+has"></a>
+<a name="module_core/vltx--module.exports+has"></a>
 
 #### module.exports.has(key)
 Returns `true` if a secret with the given key exists in the
 vault.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 
 | Param | Description |
 | --- | --- |
 | key | The key to look up. |
 
-<a name="module_core/vault--module.exports+set"></a>
+<a name="module_core/vltx--module.exports+set"></a>
 
 #### module.exports.set(key, value) ⇒
 Inserts a new encrypted secret under `key`.
@@ -665,7 +693,7 @@ The plaintext value is RSA-encrypted with the vault's public
 key before storage. Use [replace](replace) to overwrite an
 existing key.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 **Throws**:
 
@@ -679,7 +707,7 @@ existing key.
 | key | The secret key. |
 | value | The plaintext value to encrypt and store. |
 
-<a name="module_core/vault--module.exports+replace"></a>
+<a name="module_core/vltx--module.exports+replace"></a>
 
 #### module.exports.replace(key, value) ⇒
 Inserts or overwrites a secret under `key` (upsert).
@@ -687,7 +715,7 @@ Behaves identically to [set](set) but does not throw when
 the key already exists, making it safe for both initial
 population and updates.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 **Throws**:
 
@@ -699,31 +727,31 @@ population and updates.
 | key | The secret key. |
 | value | The plaintext value to encrypt and store. |
 
-<a name="module_core/vault--module.exports+entries"></a>
+<a name="module_core/vltx--module.exports+entries"></a>
 
 #### module.exports.entries()
 Returns an iterator over `[key, value]` pairs in insertion order.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-<a name="module_core/vault--module.exports+keys"></a>
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+<a name="module_core/vltx--module.exports+keys"></a>
 
 #### module.exports.keys()
 Returns an iterator over the secret keys in insertion order.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-<a name="module_core/vault--module.exports+values"></a>
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+<a name="module_core/vltx--module.exports+values"></a>
 
 #### module.exports.values()
 Returns an iterator over raw (encrypted) values in insertion order.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-<a name="module_core/vault--module.exports+getOrInsert"></a>
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+<a name="module_core/vltx--module.exports+getOrInsert"></a>
 
 #### module.exports.getOrInsert(key, value) ⇒
 Returns the value for `key`, inserting `value` if the key
 does not yet exist.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: The existing or newly inserted value.  
 
 | Param | Description |
@@ -731,13 +759,13 @@ does not yet exist.
 | key | The key to look up or insert. |
 | value | Default value to insert when the key is absent. |
 
-<a name="module_core/vault--module.exports+getOrInsertComputed"></a>
+<a name="module_core/vltx--module.exports+getOrInsertComputed"></a>
 
 #### module.exports.getOrInsertComputed(key, callbackfn) ⇒
 Returns the value for `key`, inserting the result of
 `callbackfn(key)` if absent.
 
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: The existing or newly computed value.  
 
 | Param | Description |
@@ -745,7 +773,7 @@ Returns the value for `key`, inserting the result of
 | key | The key to look up or insert. |
 | callbackfn | Factory called with `key` to produce the   default value. |
 
-<a name="module_core/vault--module.exports.init"></a>
+<a name="module_core/vltx--module.exports.init"></a>
 
 #### module.exports.init(filename, privateKeyOpts) ⇒
 Creates a new vault file at `filename` and persists it to
@@ -759,7 +787,7 @@ vault is created.
 The returned instance has its filename stored and is ready
 for both encryption and decryption.
 
-**Kind**: static method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: static method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: A configured [Vltx](Vltx) backed by `filename`.  
 **Throws**:
 
@@ -772,7 +800,7 @@ for both encryption and decryption.
 | filename | Destination path for the vault JSON file. |
 | privateKeyOpts | Key material. Must include either   `privateKey` or `privateKeyFilename`. |
 
-<a name="module_core/vault--module.exports.open"></a>
+<a name="module_core/vltx--module.exports.open"></a>
 
 #### module.exports.open(opts) ⇒
 Opens a vault from the supplied configuration.
@@ -781,7 +809,7 @@ Passes `opts` directly to the [Vltx](Vltx) constructor.
 If `opts.filename` is provided the file must already exist;
 all other validation is left to the caller.
 
-**Kind**: static method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: static method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: A configured [Vltx](Vltx) instance.  
 **Throws**:
 
@@ -792,7 +820,7 @@ all other validation is left to the caller.
 | --- | --- |
 | opts | Full vault configuration. |
 
-<a name="module_core/vault--module.exports.openForWriting"></a>
+<a name="module_core/vltx--module.exports.openForWriting"></a>
 
 #### module.exports.openForWriting(opts) ⇒
 Opens an existing vault file for writing (encryption only).
@@ -801,7 +829,7 @@ Reads `opts.filename` to load the embedded public key; no
 private key material from `opts` is forwarded to the
 constructor, so the returned vault has `canDecrypt` false.
 
-**Kind**: static method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: static method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: A [Vltx](Vltx) with `canEncrypt` true and
   `canDecrypt` false.  
 **Throws**:
@@ -814,7 +842,7 @@ constructor, so the returned vault has `canDecrypt` false.
 | --- | --- |
 | opts | Full vault configuration. Only `filename` is   used; all key material is ignored. |
 
-<a name="module_core/vault--module.exports.openForReading"></a>
+<a name="module_core/vltx--module.exports.openForReading"></a>
 
 #### module.exports.openForReading(opts) ⇒
 Opens an existing vault file for reading (decryption).
@@ -823,7 +851,7 @@ Reads `opts.filename`, loads the embedded public key and
 secrets, then unlocks the vault with the private key in
 `opts`.
 
-**Kind**: static method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
+**Kind**: static method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: A [Vltx](Vltx) with `canDecrypt` true.  
 **Throws**:
 

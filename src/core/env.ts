@@ -3,7 +3,7 @@
  *
  * Merges caller overrides with `VLTX_FILE`, `VLTX_KEY_FILE`, and
  * `VLTX_PASSPHRASE` environment variables, falling back to defaults
- * of `.vault` and `.vault.rsa` in the current working directory.
+ * of `.vltx` and `.vltx.rsa` in the current working directory.
  * @module
  */
 import dotenv from 'dotenv';
@@ -30,7 +30,7 @@ const defaults: ConfigDefaults = {
  * 1. `overrides` argument
  * 2. Environment variables (`VLTX_FILE`, `VLTX_KEY_FILE`,
  *    `VLTX_PASSPHRASE`)
- * 3. Defaults (`<cwd>/.vault`, `<cwd>/.vault.rsa`)
+ * 3. Defaults (`<cwd>/.vltx`, `<cwd>/.vltx.rsa`)
  *
  * @param overrides - Partial config values that take highest priority.
  * @returns Resolved {@link VltxConfig} with all required fields set.
