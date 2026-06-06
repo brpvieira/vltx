@@ -1,6 +1,6 @@
 import { assert, describe, it } from 'vitest';
 import { derivePublicKey, encrypt, decrypt, generateRSAKeyPair, parsePrivateKey,
-    parsePublicKey, DEFAULT_PUBLIC_ENCODING } from '../../src/core/rsa.js';
+    parsePublicKey, DEFAULT_PUBLIC_ENCODING, checkKeyPairMatches } from '../../src/core/rsa.js';
 
 describe('RSA', () => {
     it('generates a key pair without a password', () => {
@@ -77,6 +77,19 @@ describe('RSA', () => {
             const otherPrivKey = parsePrivateKey(otherPrivPem);
             const ciphertext = encrypt(pubKey, 'hello');
             assert.throws(() => decrypt(otherPrivKey, ciphertext));
+        });
+    });
+
+    describe('checkKeyPairMatches', () => {
+        it('returns true for a matching key pair', () => {
+            const { privateKey: privPem, publicKey: pubPem } = generateRSAKeyPair();
+            assert(checkKeyPairMatches(parsePrivateKey(privPem), parsePublicKey(pubPem)));
+        });
+
+        it('returns false for a mismatched key pair', () => {
+            const { privateKey: privPem } = generateRSAKeyPair();
+            const { publicKey: otherPubPem } = generateRSAKeyPair();
+            assert(!checkKeyPairMatches(parsePrivateKey(privPem), parsePublicKey(otherPubPem)));
         });
     });
 });

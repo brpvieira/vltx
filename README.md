@@ -289,8 +289,8 @@ signatures and types are documented in [API.md](API.md).
 #### [`Vltx.openForReading(opts)`](API.md#module_core/vltx--module.exports.openForReading) — decrypt secrets
 
 Opens an existing vault file and loads the private key, enabling decryption.
-Throws if the file does not exist, no private key is supplied, or the key
-cannot decrypt the vault.
+Throws if the file does not exist, no private key is supplied, the key
+cannot be parsed, or the private key does not match the vault's public key.
 
 **ESM**
 ```js

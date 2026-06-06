@@ -7,7 +7,8 @@
  * @module
  */
 import { generateKeyPairSync, createPublicKey,
-    createPrivateKey, constants } from 'node:crypto';
+    createPrivateKey, constants,
+    randomBytes, sign, verify } from 'node:crypto';
 import { privateDecrypt, type KeyPairExportResult, type RSAKeyPairOptions,
     type PrivateKeyExportOptions, type PublicKeyExportOptions,
     type KeyObject, type PrivateKeyInput, type PublicKeyInput,
@@ -120,4 +121,24 @@ export function decrypt(key: KeyObject,
         padding: constants.RSA_PKCS1_OAEP_PADDING,
         oaepHash: 'sha256'
     }, data);
+}
+
+
+/**
+ * Verifies that a private key and public key form a matching pair by signing
+ * and verifying a random challenge.
+ * @param privateKey - The private `KeyObject` to sign with.
+ * @param publicKey - The public `KeyObject` to verify against.
+ * @returns `true` if the keys form a valid pair, `false` otherwise.
+ */
+export function checkKeyPairMatches(privateKey: KeyObject,
+    publicKey: KeyObject) : boolean {
+
+    try {
+        const testData = randomBytes(32);
+        const sig = sign('sha256', testData, privateKey);
+        return verify('sha256', testData, publicKey, sig);
+    } catch {
+        return false;
+    }
 }

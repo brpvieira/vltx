@@ -14,7 +14,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { KeyObject } from 'node:crypto';
 import { parsePrivateKey, parsePublicKey, derivePublicKey,
     DEFAULT_PUBLIC_ENCODING, generateRSAKeyPair,
-    encrypt, decrypt } from './rsa.js';
+    encrypt, decrypt,
+    checkKeyPairMatches} from './rsa.js';
 import { isNodeError, stuffString, unstuffString } from './util.js';
 
 /** Options for supplying a private key to a {@link Vltx}. */
@@ -149,6 +150,15 @@ export default class Vltx implements Map<string, string> {
      * decrypt stored secrets.
      */
     get canDecrypt(): boolean { return Boolean(this.#privateKey); }
+
+
+    /**
+     * `true` when both a private key and a public key are loaded and they form
+     * a matching pair.
+     */
+    get keyPairMatches(): boolean {
+        return checkKeyPairMatches(this.#privateKey!, this.#publicKey!);
+    }
 
     /**
      * Removes the private key, leaving the vault in encrypt-only
@@ -626,6 +636,11 @@ export default class Vltx implements Map<string, string> {
         if (!v.canDecrypt) {
             throw new Error('Unable to open safe, check private key and passphrase');
         }
+
+        if (!v.keyPairMatches) {
+            throw new Error('Private key does not match vault\'s public key');
+        }
+
         return v;
     }
 }

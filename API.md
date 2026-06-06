@@ -180,6 +180,7 @@ parse PEM-encoded keys into `KeyObject` instances.
     * [.derivePublicKey(input)](#module_core/rsa.derivePublicKey) ⇒
     * [.encrypt(key, data)](#module_core/rsa.encrypt) ⇒
     * [.decrypt(key, data)](#module_core/rsa.decrypt) ⇒
+    * [.checkKeyPairMatches(privateKey, publicKey)](#module_core/rsa.checkKeyPairMatches) ⇒
 
 <a name="module_core/rsa.DEFAULT_PRIVATE_ENCODING"></a>
 
@@ -275,6 +276,20 @@ Decrypts RSA ciphertext produced by [encrypt](encrypt) using RSA-OAEP-SHA-256.
 | --- | --- |
 | key | A private `KeyObject` used to decrypt. |
 | data | Ciphertext buffer or string to decrypt. |
+
+<a name="module_core/rsa.checkKeyPairMatches"></a>
+
+### core/rsa.checkKeyPairMatches(privateKey, publicKey) ⇒
+Verifies that a private key and public key form a matching pair by signing
+and verifying a random challenge.
+
+**Kind**: static method of [<code>core/rsa</code>](#module_core/rsa)  
+**Returns**: `true` if the keys form a valid pair, `false` otherwise.  
+
+| Param | Description |
+| --- | --- |
+| privateKey | The private `KeyObject` to sign with. |
+| publicKey | The public `KeyObject` to verify against. |
 
 <a name="module_core/util"></a>
 
@@ -379,6 +394,7 @@ helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
             * [.publicKey](#module_core/vltx--module.exports+publicKey)
             * [.canEncrypt](#module_core/vltx--module.exports+canEncrypt)
             * [.canDecrypt](#module_core/vltx--module.exports+canDecrypt)
+            * [.keyPairMatches](#module_core/vltx--module.exports+keyPairMatches)
             * [.size](#module_core/vltx--module.exports+size)
             * [.setPrivateKey(opts)](#module_core/vltx--module.exports+setPrivateKey) ⇒
             * [.setPublicKey(key)](#module_core/vltx--module.exports+setPublicKey) ⇒
@@ -459,6 +475,13 @@ encrypt new secrets.
 #### module.exports.canDecrypt
 `true` when a private key is available and the vault can
 decrypt stored secrets.
+
+**Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
+<a name="module_core/vltx--module.exports+keyPairMatches"></a>
+
+#### module.exports.keyPairMatches
+`true` when both a private key and a public key are loaded and they form
+a matching pair.
 
 **Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 <a name="module_core/vltx--module.exports+size"></a>

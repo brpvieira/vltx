@@ -118,6 +118,25 @@ describe('Vltx.setPublicKey', () => {
     });
 });
 
+describe('Vltx.keyPairMatches', () => {
+    it('returns true when private and public keys form a matching pair', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        assert(v.keyPairMatches);
+    });
+
+    it('returns false when the private key does not match the public key', () => {
+        const { privateKey: otherPrivPem } = generateRSAKeyPair();
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.setPrivateKey({ privateKey: otherPrivPem });
+        assert(!v.keyPairMatches);
+    });
+
+    it('returns false when no keys are loaded', () => {
+        const v = new Vltx({});
+        assert(!v.keyPairMatches);
+    });
+});
+
 describe('Vltx.load', () => {
     it('populates secrets from a plain object', () => {
         const v = new Vltx({});
@@ -495,12 +514,14 @@ describe('Vltx.openForReading', () => {
         assert(v.canEncrypt);
     });
 
-    it('throws when private key cannot decrypt (wrong key)', () => {
+    it('throws when private key does not match vault public key', () => {
         const wrongKeyPath = join(tmpDir, 'open-wrong.pem');
         const { privateKey: otherKey } = generateRSAKeyPair();
         writeFileSync(wrongKeyPath, otherKey as string);
-        const v = Vltx.openForReading({ filename: vaultPath, privateKeyFilename: wrongKeyPath });
-        assert.throws(() => v.get('secret'));
+        assert.throws(
+            () => Vltx.openForReading({ filename: vaultPath, privateKeyFilename: wrongKeyPath }),
+            /does not match/,
+        );
     });
 
     it('throws when the key file is empty (canDecrypt is false)', () => {
