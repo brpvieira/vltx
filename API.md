@@ -1,12 +1,6 @@
 ## Modules
 
 <dl>
-<dt><a href="#module_core/env">core/env</a></dt>
-<dd><p>Environment-based vault configuration resolver.</p>
-<p>Merges caller overrides with <code>VLTX_FILE</code>, <code>VLTX_KEY_FILE</code>, and
-<code>VLTX_PASSPHRASE</code> environment variables, falling back to defaults
-of <code>.vltx</code> and <code>.vltx.rsa</code> in the current working directory.</p>
-</dd>
 <dt><a href="#module_core/logger">core/logger</a></dt>
 <dd><p>Structured logger for CLI output.</p>
 <p>Provides levelled log functions (<code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code>, <code>log</code>)
@@ -72,34 +66,6 @@ vault to stdout.</p>
 <dd><p>Prints all secret keys in <code>v</code> as a formatted, sorted list.</p>
 </dd>
 </dl>
-
-<a name="module_core/env"></a>
-
-## core/env
-Environment-based vault configuration resolver.
-
-Merges caller overrides with `VLTX_FILE`, `VLTX_KEY_FILE`, and
-`VLTX_PASSPHRASE` environment variables, falling back to defaults
-of `.vltx` and `.vltx.rsa` in the current working directory.
-
-<a name="exp_module_core/env--module.exports"></a>
-
-### module.exports(overrides) ⇒ ⏏
-Resolves vault configuration by merging overrides with environment
-variables and built-in defaults.
-
-Resolution order (highest priority first):
-1. `overrides` argument
-2. Environment variables (`VLTX_FILE`, `VLTX_KEY_FILE`,
-   `VLTX_PASSPHRASE`)
-3. Defaults (`<cwd>/.vltx`, `<cwd>/.vltx.rsa`)
-
-**Kind**: Exported function  
-**Returns**: Resolved [VltxConfig](VltxConfig) with all required fields set.  
-
-| Param | Description |
-| --- | --- |
-| overrides | Partial config values that take highest priority. |
 
 <a name="module_core/logger"></a>
 

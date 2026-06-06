@@ -6,11 +6,9 @@
  * of `.vltx` and `.vltx.rsa` in the current working directory.
  * @module
  */
-import dotenv from 'dotenv';
 import type { VltxConfig } from './vltx.js';
 import { join } from 'node:path';
 
-dotenv.config({ quiet: true });
 
 type ConfigDefaults = {
     filename: string,

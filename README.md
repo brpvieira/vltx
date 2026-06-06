@@ -130,13 +130,16 @@ Set these to avoid repeating paths on every command:
 | `VLTX_KEY_FILE`   | Path to the private key file   | `.vltx.rsa` |
 | `VLTX_PASSPHRASE` | Passphrase for the private key | —            |
 
-Place them in a `.env` file at the project root — `vltx` loads it automatically.
+Place them in a `.env` file at the project root — the `vltx` CLI loads it automatically.
 
 ```sh
 # .env
 VLTX_FILE=secrets/production.vault
 VLTX_KEY_FILE=~/.keys/prod.rsa
 ```
+
+> [!NOTE]
+> `.env` loading is a CLI-only feature. When using the `vltx` package as a library, you may use dotenv followed by `dotenv.config()` before calling `setup()` if you rely on a `.env` file for `VLTX_FILE`, `VLTX_KEY_FILE`, or `VLTX_PASSPHRASE`.
 
 ---
 

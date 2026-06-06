@@ -6,6 +6,9 @@ import { initHandler, addHandler, listHandler, getHandler,
     replaceHandler, deleteHandler } from './commands.js';
 import { error } from '../core/logger.js';
 
+import dotenv from 'dotenv';
+dotenv.config({ quiet: true });
+
 function addVaultFile(y: Argv): Argv {
     return y.option('vault-file', {
         alias: 'f',
