@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { setupVltx as setup } from '../src/index.js';
+import { setup } from '../src/index.js';
 import Vltx from '../src/core/vltx.js';
 import { generateRSAKeyPair } from '../src/core/rsa.js';
 

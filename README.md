@@ -140,22 +140,22 @@ VLTX_KEY_FILE=~/.keys/prod.rsa
 
 ## Using secrets in your application
 
-Import `setupVltx` from the package and call it once at startup. It loads the vault and — by default — registers a tagged template literal function on the global scope so your secrets are accessible anywhere without threading a reference through your codebase.
+Import `setup` from the package and call it once at startup. It loads the vault and — by default — registers a tagged template literal function on the global scope so your secrets are accessible anywhere without threading a reference through your codebase.
 
 ### Quick start
 
 **ESM (import)**
 ```js
-import { setupVltx } from 'vltx';
+import { setup } from 'vltx';
 
-setupVltx(); // reads .vltx and .vltx.rsa from cwd, registers global `vltx` tag
+setup(); // reads .vltx and .vltx.rsa from cwd, registers global `vltx` tag
 ```
 
 **CommonJS (require)**
 ```js
-const { setupVltx } = require('vltx');
+const { setup } = require('vltx');
 
-setupVltx(); // reads .vltx and .vltx.rsa from cwd, registers global `vltx` tag
+setup(); // reads .vltx and .vltx.rsa from cwd, registers global `vltx` tag
 ```
 
 ```js
@@ -172,9 +172,9 @@ The tag returns the decrypted string for a known key, or an empty string for an 
 
 **ESM**
 ```js
-import { setupVltx } from 'vltx';
+import { setup } from 'vltx';
 
-setupVltx({
+setup({
     filename: 'secrets/production.vault',
     alias: 'secret',        // registers global.secret instead of global.vltx
 });
@@ -182,9 +182,9 @@ setupVltx({
 
 **CommonJS**
 ```js
-const { setupVltx } = require('vltx');
+const { setup } = require('vltx');
 
-setupVltx({
+setup({
     filename: 'secrets/production.vault',
     alias: 'secret',
 });
@@ -202,9 +202,9 @@ If you prefer explicit access over global injection, disable injection and use t
 
 **ESM**
 ```js
-import { setupVltx } from 'vltx';
+import { setup } from 'vltx';
 
-const vault = setupVltx({ inject: false });
+const vault = setup({ inject: false });
 
 const dbUrl  = vault.get('DB_URL');
 const apiKey = vault.get('API_KEY');
@@ -212,9 +212,9 @@ const apiKey = vault.get('API_KEY');
 
 **CommonJS**
 ```js
-const { setupVltx } = require('vltx');
+const { setup } = require('vltx');
 
-const vault = setupVltx({ inject: false });
+const vault = setup({ inject: false });
 
 const dbUrl  = vault.get('DB_URL');
 const apiKey = vault.get('API_KEY');
@@ -233,7 +233,7 @@ declare function vltx(strings: TemplateStringsArray): string;
 
 ---
 
-### `setupVltx()` options
+### `setup()` options
 
 | Option     | Type      | Default   | Description                           |
 |------------|-----------|-----------|---------------------------------------|
@@ -241,7 +241,7 @@ declare function vltx(strings: TemplateStringsArray): string;
 | `alias`    | `string`  | `'vltx'` | Name of the global tag function       |
 | `inject`   | `boolean` | `true`    | Register the tag function on `global` |
 
-`setupVltx()` is idempotent — repeated calls with the same alias return the cached `Vltx` instance. The vault file path is resolved from `filename`, then `VLTX_FILE`, then `.vltx` in the current directory.
+`setup()` is idempotent — repeated calls with the same alias return the cached `Vltx` instance. The vault file path is resolved from `filename`, then `VLTX_FILE`, then `.vltx` in the current directory.
 
 ---
 

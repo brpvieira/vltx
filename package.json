@@ -7,10 +7,10 @@
     "env",
     "secrets"
   ],
-  "homepage": "https://github.com/brpvieira/vault?tab=readme-ov-file",
+  "homepage": "https://github.com/brpvieira/vltx?tab=readme-ov-file",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/brpvieira/vault.git"
+    "url": "git+https://github.com/brpvieira/vltx.git"
   },
   "license": "ISC",
   "engines": {

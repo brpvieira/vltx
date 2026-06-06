@@ -38,7 +38,7 @@ function vaultTag(vault: Vltx, strings: TemplateStringsArray,
  *   use the returned {@link Vltx} directly.
  * @returns The initialized {@link Vltx} instance.
  */
-export function setupVltx(args: VltxModuleConfig = {}) {
+export function setup(args: VltxModuleConfig = {}) {
     let v: Vltx;
     const opts: VltxModuleConfig = { ...DEFAULTS, ...args };
     if (vaults.has(opts.alias!)) {
