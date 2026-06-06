@@ -5,7 +5,7 @@ import vitest from '@vitest/eslint-plugin'
 import { defineConfig } from 'eslint/config';
 
 export default defineConfig([
-    { ignores: ['dist/**'] },
+    { ignores: ['dist/**', 'scratchpad/**'] },
     {
         files: ['**/*.{js,mjs,cjs,ts,mts,cts}'],
         plugins: { js },

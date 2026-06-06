@@ -44,7 +44,7 @@
     "clean": "rm -fr ./dist/* && rm -f .vltx*",
     "build": "tsup",
     "postbuild": "chmod +x dist/bin/cli.js",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run test && npm run build",
     "lint:fix": "eslint --fix .",
     "lint": "tsc --noEmit && eslint .",
     "test": "npm run lint:fix && vitest run",
