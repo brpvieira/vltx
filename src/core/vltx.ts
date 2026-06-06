@@ -379,7 +379,16 @@ export default class Vltx implements Map<string, string> {
         return this.#doSet(key, value);
     }
 
-    /** Returns an iterator over `[key, value]` pairs in insertion order. */
+    /**
+     * Returns an iterator over `[key, encryptedValue]` pairs in insertion
+     * order.
+     *
+     * **Note:** values are always the raw ciphertext stored on disk,
+     * regardless of whether a private key is loaded. Unlike {@link get},
+     * no decryption occurs. Spread or destructure with care:
+     * `Object.fromEntries(vault)` and `for (const [k, v] of vault.entries())`
+     * will produce encrypted base64 blobs, not plaintext.
+     */
     entries(): MapIterator<[string, string]> {
         return this.#secrets.entries();
     }
@@ -389,7 +398,14 @@ export default class Vltx implements Map<string, string> {
         return this.#secrets.keys();
     }
 
-    /** Returns an iterator over raw (encrypted) values in insertion order. */
+    /**
+     * Returns an iterator over raw (encrypted) values in insertion order.
+     *
+     * **Note:** values are always the raw ciphertext stored on disk,
+     * regardless of whether a private key is loaded. Unlike {@link get},
+     * no decryption occurs. Use {@link get} to retrieve a decrypted value
+     * for a specific key.
+     */
     values(): MapIterator<string> {
         return this.#secrets.values();
     }
@@ -426,8 +442,14 @@ export default class Vltx implements Map<string, string> {
     }
 
     /**
-     * Returns an iterator over `[key, value]` pairs, making `Vltx`
+     * Returns an iterator over `[key, encryptedValue]` pairs, making `Vltx`
      * iterable with `for…of`.
+     *
+     * **Note:** values are always the raw ciphertext stored on disk,
+     * regardless of whether a private key is loaded. Unlike {@link get},
+     * no decryption occurs. Spread or destructure with care:
+     * `Object.fromEntries(vault)` and `for (const [k, v] of vault)` will
+     * produce encrypted base64 blobs, not plaintext.
      */
     [Symbol.iterator](): MapIterator<[string, string]> {
         return this.#secrets.entries();

@@ -252,6 +252,33 @@ instance methods. Using a factory method is the recommended approach — each
 one validates its preconditions and makes the intent explicit. Full method
 signatures and types are documented in [API.md](API.md).
 
+> [!WARNING]
+> **Map iteration returns raw ciphertext, not plaintext.**
+>
+> `Vltx` implements `Map<string, string>`, but iteration methods
+> (`entries()`, `values()`, `[Symbol.iterator]`, `forEach()`) always yield
+> the raw encrypted values stored on disk — no decryption occurs, even when a
+> private key is loaded. Only `get(key)` decrypts.
+>
+> ```js
+> const v = Vltx.openForWriting({ filename: '.vault' });
+>
+> // These look correct but produce encrypted base64 blobs:
+> for (const [k, val] of v) { /* val is ciphertext */ }
+> Object.fromEntries(v);  // { DB_URL: 'a8Kx2...', API_KEY: 'mN7pQ...' }
+> [...v.values()]         // ['a8Kx2...', 'mN7pQ...']
+>
+> // Use get() to decrypt individual values:
+> const dbUrl = v.get('DB_URL');  // plaintext (when canDecrypt is true)
+> ```
+>
+> To export all secrets as plaintext, iterate the keys and call `get()` for
+> each one:
+>
+> ```js
+> const plain = Object.fromEntries([...v.keys()].map(k => [k, v.get(k)]));
+> ```
+
 ---
 
 #### [`Vltx.openForReading(opts)`](API.md#module_core/vltx--module.exports.openForReading) — decrypt secrets
