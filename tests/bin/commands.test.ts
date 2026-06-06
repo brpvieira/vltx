@@ -8,7 +8,7 @@ const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mock
         delete: vi.fn().mockReturnValue(true),
         replace: vi.fn(),
         get: vi.fn().mockReturnValue('the-value'),
-        filename: '/test/.vault',
+        filename: '/test/.vltx',
     };
     const MockVault = Object.assign(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,8 +20,8 @@ const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mock
         },
     );
     const mockGetConfig = vi.fn().mockReturnValue({
-        filename: '/test/.vault',
-        privateKeyFilename: '/test/.vault.rsa',
+        filename: '/test/.vltx',
+        privateKeyFilename: '/test/.vltx.rsa',
     });
     const mockListKeys = vi.fn();
     const mockLog = vi.fn();
@@ -29,7 +29,7 @@ const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mock
     return { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError };
 });
 
-vi.mock('../../src/core/vault.js', () => ({ default: MockVault }));
+vi.mock('../../src/core/vltx.js', () => ({ default: MockVault }));
 vi.mock('../../src/core/env.js', () => ({ default: mockGetConfig }));
 vi.mock('../../src/bin/helpers.js', () => ({
     listKeys: mockListKeys,
@@ -50,7 +50,7 @@ import {
 } from '../../src/bin/commands.js';
 
 function makeArgv(extra: Record<string, unknown> = {}): ArgumentsCamelCase {
-    return { _: [], $0: 'vault-cli', ...extra } as ArgumentsCamelCase;
+    return { _: [], $0: 'vltx', ...extra } as ArgumentsCamelCase;
 }
 
 describe('resolveConfig', () => {
@@ -85,7 +85,7 @@ describe('resolveConfig', () => {
 
     it('returns the value from getConfig', () => {
         const result = resolveConfig(makeArgv());
-        expect(result).toEqual({ filename: '/test/.vault', privateKeyFilename: '/test/.vault.rsa' });
+        expect(result).toEqual({ filename: '/test/.vltx', privateKeyFilename: '/test/.vltx.rsa' });
     });
 });
 
@@ -93,19 +93,19 @@ describe('initHandler', () => {
     it('calls Vault.init with resolved filename and config', () => {
         initHandler(makeArgv());
         expect(MockVault.init).toHaveBeenCalledWith(
-            '/test/.vault',
-            expect.objectContaining({ filename: '/test/.vault' }),
+            '/test/.vltx',
+            expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
     it('logs the vault filename', () => {
         initHandler(makeArgv());
-        expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('/test/.vault'));
+        expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('/test/.vltx'));
     });
 
     it('logs the private key filename', () => {
         initHandler(makeArgv());
-        expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('/test/.vault.rsa'));
+        expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('/test/.vltx.rsa'));
     });
 });
 
@@ -117,7 +117,7 @@ describe('addHandler', () => {
     it('opens the vault for writing with the resolved config', () => {
         addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
         expect(MockVault.openForWriting).toHaveBeenCalledWith(
-            expect.objectContaining({ filename: '/test/.vault' }),
+            expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
@@ -153,7 +153,7 @@ describe('deleteHandler', () => {
     it('opens the vault for writing with the resolved config', () => {
         deleteHandler(makeArgv({ key: 'mykey' }));
         expect(MockVault.openForWriting).toHaveBeenCalledWith(
-            expect.objectContaining({ filename: '/test/.vault' }),
+            expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
@@ -190,7 +190,7 @@ describe('replaceHandler', () => {
     it('opens the vault for writing with the resolved config', () => {
         replaceHandler(makeArgv({ key: 'k', value: 'v' }));
         expect(MockVault.openForWriting).toHaveBeenCalledWith(
-            expect.objectContaining({ filename: '/test/.vault' }),
+            expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
@@ -226,7 +226,7 @@ describe('getHandler', () => {
     it('opens the vault for reading with the resolved config', () => {
         getHandler(makeArgv({ key: 'mykey' }));
         expect(MockVault.openForReading).toHaveBeenCalledWith(
-            expect.objectContaining({ filename: '/test/.vault' }),
+            expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
@@ -256,7 +256,7 @@ describe('listHandler', () => {
     it('opens the vault for writing with the resolved config', () => {
         listHandler(makeArgv());
         expect(MockVault.openForWriting).toHaveBeenCalledWith(
-            expect.objectContaining({ filename: '/test/.vault' }),
+            expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 

@@ -1,4 +1,4 @@
-import Vault, { type VaultConfig } from '../core/vault.js';
+import Vltx, { type VltxConfig } from '../core/vltx.js';
 import type { ArgumentsCamelCase } from 'yargs';
 import getConfig from '../core/env.js';
 import { listKeys } from './helpers.js';
@@ -13,10 +13,10 @@ type CommandLineArguments = Partial<{
 }>
 
 /**
- * Resolved CLI configuration: extends {@link VaultConfig} with the
+ * Resolved CLI configuration: extends {@link VltxConfig} with the
  * required `filename` and `privateKeyFilename` fields.
  */
-export type VaultCliConfig = VaultConfig &
+export type VltxCliConfig = VltxConfig &
     { filename: string; privateKeyFilename: string };
 
 /**
@@ -26,14 +26,14 @@ export type VaultCliConfig = VaultConfig &
  * @param argv - Parsed yargs arguments from the CLI.
  * @returns Resolved configuration with filename and key paths.
  */
-export function resolveConfig(argv: ArgumentsCamelCase): VaultCliConfig {
-    const args: VaultConfig = {};
+export function resolveConfig(argv: ArgumentsCamelCase): VltxCliConfig {
+    const args: VltxConfig = {};
     const { 'vault-file': vaultFile,
         'key-file': keyFile, passphrase } = argv as CommandLineArguments;
     if (vaultFile) args.filename = vaultFile;
     if (keyFile) args.privateKeyFilename = keyFile;
     if (passphrase) args.passphrase = passphrase;
-    return getConfig(args) as VaultCliConfig;
+    return getConfig(args) as VltxCliConfig;
 }
 
 /**
@@ -45,7 +45,7 @@ export function resolveConfig(argv: ArgumentsCamelCase): VaultCliConfig {
  */
 export function initHandler(argv: ArgumentsCamelCase): void {
     const cfg = resolveConfig(argv);
-    Vault.init(cfg.filename!, cfg);
+    Vltx.init(cfg.filename!, cfg);
     log(`Vault initialised:  ${cfg.filename}`);
     log(`Private key:        ${cfg.privateKeyFilename}`);
 }
@@ -59,7 +59,7 @@ export function initHandler(argv: ArgumentsCamelCase): void {
  */
 export function addHandler(argv: ArgumentsCamelCase): void {
     const cfg = resolveConfig(argv);
-    const v = Vault.openForWriting(cfg);
+    const v = Vltx.openForWriting(cfg);
     const { key, value } = argv as CommandLineArguments;
     v.set(key as string, value as string);
     v.write();
@@ -75,7 +75,7 @@ export function addHandler(argv: ArgumentsCamelCase): void {
  */
 export function deleteHandler(argv: ArgumentsCamelCase): void {
     const cfg = resolveConfig(argv);
-    const v = Vault.openForWriting(cfg);
+    const v = Vltx.openForWriting(cfg);
     const { key } = argv as CommandLineArguments;
     if (!v.delete(key!)) {
         error(`Key not found: ${key as string}`);
@@ -94,7 +94,7 @@ export function deleteHandler(argv: ArgumentsCamelCase): void {
  */
 export function replaceHandler(argv: ArgumentsCamelCase): void {
     const cfg = resolveConfig(argv);
-    const v = Vault.openForWriting(cfg);
+    const v = Vltx.openForWriting(cfg);
     const { key, value } = argv as CommandLineArguments;
     v.replace(key as string, value as string);
     v.write();
@@ -110,7 +110,7 @@ export function replaceHandler(argv: ArgumentsCamelCase): void {
  */
 export function getHandler(argv: ArgumentsCamelCase): void {
     const cfg = resolveConfig(argv);
-    const v = Vault.openForReading(cfg);
+    const v = Vltx.openForReading(cfg);
     const { key } = argv as CommandLineArguments;
     const value = v.get(key!);
     if (value === undefined) {
@@ -129,6 +129,6 @@ export function getHandler(argv: ArgumentsCamelCase): void {
  */
 export function listHandler(argv: ArgumentsCamelCase): void {
     const cfg = resolveConfig(argv);
-    const v = Vault.openForWriting(cfg);
+    const v = Vltx.openForWriting(cfg);
     listKeys(v);
 }

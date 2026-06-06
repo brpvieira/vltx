@@ -1,4 +1,4 @@
-# vault
+# vltx
 
 **Simple, secure secret storage using asymmetric RSA encryption.**
 
@@ -8,11 +8,11 @@ Store encrypted secrets in a file you can safely commit to source control, packa
 
 ## How it works
 
-`vault` generates an RSA key pair. The **public key** lives inside the vault file alongside the encrypted secrets. The **private key** stays with you (or your deployment environment). Anyone can add secrets; only the private key holder can read them.
+`vltx` generates an RSA key pair. The **public key** lives inside the vault file alongside the encrypted secrets. The **private key** stays with you (or your deployment environment). Anyone can add secrets; only the private key holder can read them.
 
 ```
 ┌─────────────────────────────────┐     ┌──────────────────┐
-│  .vault  (commit to git)        │     │  .vault.rsa      │
+│  .vltx  (commit to git)         │     │  .vltx.rsa      │
 │                                 │     │  (keep private)  │
 │  publicKey: "-----BEGIN..."     │     │                  │
 │  secrets:                       │  ←  │  4096-bit RSA    │
@@ -27,10 +27,10 @@ Store encrypted secrets in a file you can safely commit to source control, packa
 ## Installation
 
 ```sh
-npm install vault
+npm install vltx
 ```
 
-This gives you both the **`vault-cli`** command and the **`vault`** module for use in your application.
+This gives you both the **`vltx`** command and the **`vltx`** module for use in your application.
 
 ---
 
@@ -41,25 +41,25 @@ This gives you both the **`vault-cli`** command and the **`vault`** module for u
 Creates a vault file and generates a 4096-bit RSA key pair.
 
 ```sh
-npx vault-cli init
+npx vltx init
 ```
 
-By default this creates `.vault` (the encrypted store) and `.vault.rsa` (your private key) in the current directory. Add `.vault.rsa` to `.gitignore` immediately.
+By default this creates `.vltx` (the encrypted store) and `.vltx.rsa` (your private key) in the current directory. Add `.vltx.rsa` to `.gitignore` immediately.
 
 ```sh
-echo ".vault.rsa" >> .gitignore
+echo ".vltx.rsa" >> .gitignore
 ```
 
 To use custom paths:
 
 ```sh
-npx vault-cli init --vault-file secrets/production.vault --key-file ~/.keys/prod.rsa
+npx vltx init --vault-file secrets/production.vault --key-file ~/.keys/prod.rsa
 ```
 
 Protect the private key with a passphrase:
 
 ```sh
-npx vault-cli init --passphrase "my passphrase"
+npx vltx init --passphrase "my passphrase"
 ```
 
 ---
@@ -67,15 +67,15 @@ npx vault-cli init --passphrase "my passphrase"
 ### 2. Add secrets
 
 ```sh
-npx vault-cli add DB_URL "postgres://user:pass@host/db"
-npx vault-cli add API_KEY "sk-live-abc123"
-npx vault-cli add SMTP_PASSWORD "hunter2"
+npx vltx add DB_URL "postgres://user:pass@host/db"
+npx vltx add API_KEY "sk-live-abc123"
+npx vltx add SMTP_PASSWORD "hunter2"
 ```
 
 `add` refuses to overwrite an existing key. To update a secret use `replace`:
 
 ```sh
-npx vault-cli replace API_KEY "sk-live-newkey456"
+npx vltx replace API_KEY "sk-live-newkey456"
 ```
 
 ---
@@ -83,11 +83,11 @@ npx vault-cli replace API_KEY "sk-live-newkey456"
 ### 3. List keys
 
 ```sh
-npx vault-cli list
+npx vltx list
 ```
 
 ```
-.vault (3 secrets)
+.vltx (3 secrets)
   API_KEY
   DB_URL
   SMTP_PASSWORD
@@ -102,10 +102,10 @@ Key names are always shown. Values are never printed by `list`.
 Decrypting requires the private key:
 
 ```sh
-npx vault-cli get DB_URL
+npx vltx get DB_URL
 # postgres://user:pass@host/db
 
-npx vault-cli get DB_URL --key-file ~/.keys/prod.rsa --passphrase "my passphrase"
+npx vltx get DB_URL --key-file ~/.keys/prod.rsa --passphrase "my passphrase"
 ```
 
 ---
@@ -113,7 +113,7 @@ npx vault-cli get DB_URL --key-file ~/.keys/prod.rsa --passphrase "my passphrase
 ### 5. Delete a secret
 
 ```sh
-npx vault-cli delete SMTP_PASSWORD
+npx vltx delete SMTP_PASSWORD
 ```
 
 ---
@@ -124,44 +124,44 @@ Set these to avoid repeating paths on every command:
 
 | Variable           | Purpose                        | Default      |
 |--------------------|--------------------------------|--------------|
-| `VAULT_FILE`       | Path to the vault file         | `.vault`     |
-| `VAULT_KEY_FILE`   | Path to the private key file   | `.vault.rsa` |
-| `VAULT_PASSPHRASE` | Passphrase for the private key | —            |
+| `VLTX_FILE`       | Path to the vault file         | `.vltx`      |
+| `VLTX_KEY_FILE`   | Path to the private key file   | `.vltx.rsa` |
+| `VLTX_PASSPHRASE` | Passphrase for the private key | —            |
 
-Place them in a `.env` file at the project root — `vault-cli` loads it automatically.
+Place them in a `.env` file at the project root — `vltx` loads it automatically.
 
 ```sh
 # .env
-VAULT_FILE=secrets/production.vault
-VAULT_KEY_FILE=~/.keys/prod.rsa
+VLTX_FILE=secrets/production.vault
+VLTX_KEY_FILE=~/.keys/prod.rsa
 ```
 
 ---
 
 ## Using secrets in your application
 
-Import `setupVault` from the package and call it once at startup. It loads the vault and — by default — registers a tagged template literal function on the global scope so your secrets are accessible anywhere without threading a reference through your codebase.
+Import `setupVltx` from the package and call it once at startup. It loads the vault and — by default — registers a tagged template literal function on the global scope so your secrets are accessible anywhere without threading a reference through your codebase.
 
 ### Quick start
 
 **ESM (import)**
 ```js
-import { setupVault } from 'vault';
+import { setupVltx } from 'vltx';
 
-setupVault(); // reads .vault and .vault.rsa from cwd, registers global `vault` tag
+setupVltx(); // reads .vltx and .vltx.rsa from cwd, registers global `vltx` tag
 ```
 
 **CommonJS (require)**
 ```js
-const { setupVault } = require('vault');
+const { setupVltx } = require('vltx');
 
-setupVault(); // reads .vault and .vault.rsa from cwd, registers global `vault` tag
+setupVltx(); // reads .vltx and .vltx.rsa from cwd, registers global `vltx` tag
 ```
 
 ```js
 // anywhere in your app — no import needed
-const db = new Database(vault`DB_URL`);
-const client = new ApiClient(vault`API_KEY`);
+const db = new Database(vltx`DB_URL`);
+const client = new ApiClient(vltx`API_KEY`);
 ```
 
 The tag returns the decrypted string for a known key, or an empty string for an unknown one.
@@ -172,19 +172,19 @@ The tag returns the decrypted string for a known key, or an empty string for an 
 
 **ESM**
 ```js
-import { setupVault } from 'vault';
+import { setupVltx } from 'vltx';
 
-setupVault({
+setupVltx({
     filename: 'secrets/production.vault',
-    alias: 'secret',        // registers global.secret instead of global.vault
+    alias: 'secret',        // registers global.secret instead of global.vltx
 });
 ```
 
 **CommonJS**
 ```js
-const { setupVault } = require('vault');
+const { setupVltx } = require('vltx');
 
-setupVault({
+setupVltx({
     filename: 'secrets/production.vault',
     alias: 'secret',
 });
@@ -198,13 +198,13 @@ const db = new Database(secret`DB_URL`);
 
 ### Without the global tag
 
-If you prefer explicit access over global injection, disable injection and use the returned `Vault` instance directly:
+If you prefer explicit access over global injection, disable injection and use the returned `Vltx` instance directly:
 
 **ESM**
 ```js
-import { setupVault } from 'vault';
+import { setupVltx } from 'vltx';
 
-const vault = setupVault({ inject: false });
+const vault = setupVltx({ inject: false });
 
 const dbUrl  = vault.get('DB_URL');
 const apiKey = vault.get('API_KEY');
@@ -212,9 +212,9 @@ const apiKey = vault.get('API_KEY');
 
 **CommonJS**
 ```js
-const { setupVault } = require('vault');
+const { setupVltx } = require('vltx');
 
-const vault = setupVault({ inject: false });
+const vault = setupVltx({ inject: false });
 
 const dbUrl  = vault.get('DB_URL');
 const apiKey = vault.get('API_KEY');
@@ -228,33 +228,33 @@ When using the global tag in TypeScript, declare the tag function in a `.d.ts` f
 
 ```ts
 // globals.d.ts
-declare function vault(strings: TemplateStringsArray): string;
+declare function vltx(strings: TemplateStringsArray): string;
 ```
 
 ---
 
-### `setupVault()` options
+### `setupVltx()` options
 
 | Option     | Type      | Default   | Description                           |
 |------------|-----------|-----------|---------------------------------------|
-| `filename` | `string`  | env / `'./.vault'` | Path to the vault file                |
-| `alias`    | `string`  | `'vault'` | Name of the global tag function       |
+| `filename` | `string`  | env / `'./.vltx'` | Path to the vault file                |
+| `alias`    | `string`  | `'vltx'` | Name of the global tag function       |
 | `inject`   | `boolean` | `true`    | Register the tag function on `global` |
 
-`setupVault()` is idempotent — repeated calls with the same alias return the cached `Vault` instance. The vault file path is resolved from `filename`, then `VAULT_FILE`, then `.vault` in the current directory.
+`setupVltx()` is idempotent — repeated calls with the same alias return the cached `Vltx` instance. The vault file path is resolved from `filename`, then `VLTX_FILE`, then `.vltx` in the current directory.
 
 ---
 
-### Vault class API
+### Vltx class API
 
-The `Vault` class exposes three static factory methods and two key-lifecycle
+The `Vltx` class exposes three static factory methods and two key-lifecycle
 instance methods. Using a factory method is the recommended approach — each
 one validates its preconditions and makes the intent explicit. Full method
 signatures and types are documented in [API.md](API.md).
 
 ---
 
-#### [`Vault.openForReading(opts)`](API.md#module_core/vault--module.exports.openForReading) — decrypt secrets
+#### [`Vltx.openForReading(opts)`](API.md#module_core/vltx--module.exports.openForReading) — decrypt secrets
 
 Opens an existing vault file and loads the private key, enabling decryption.
 Throws if the file does not exist, no private key is supplied, or the key
@@ -262,12 +262,12 @@ cannot decrypt the vault.
 
 **ESM**
 ```js
-import { Vault } from 'vault';
+import { Vltx } from 'vltx';
 
-const v = Vault.openForReading({
+const v = Vltx.openForReading({
     filename: 'secrets/production.vault',
     privateKeyFilename: '/run/secrets/vault.rsa',
-    passphrase: process.env.VAULT_PASSPHRASE, // optional
+    passphrase: process.env.VLTX_PASSPHRASE, // optional
 });
 
 const dbUrl = v.get('DB_URL');
@@ -275,12 +275,12 @@ const dbUrl = v.get('DB_URL');
 
 **CommonJS**
 ```js
-const { Vault } = require('vault');
+const { Vltx } = require('vltx');
 
-const v = Vault.openForReading({
+const v = Vltx.openForReading({
     filename: 'secrets/production.vault',
     privateKeyFilename: '/run/secrets/vault.rsa',
-    passphrase: process.env.VAULT_PASSPHRASE,
+    passphrase: process.env.VLTX_PASSPHRASE,
 });
 
 const dbUrl = v.get('DB_URL');
@@ -288,7 +288,7 @@ const dbUrl = v.get('DB_URL');
 
 ---
 
-#### [`Vault.openForWriting(opts)`](API.md#module_core/vault--module.exports.openForWriting) — add or replace secrets
+#### [`Vltx.openForWriting(opts)`](API.md#module_core/vltx--module.exports.openForWriting) — add or replace secrets
 
 Opens an existing vault file without loading a private key. The public key
 embedded in the file is loaded automatically, enabling encryption.
@@ -297,9 +297,9 @@ to write secrets (e.g., a CI pipeline that rotates credentials).
 
 **ESM**
 ```js
-import { Vault } from 'vault';
+import { Vltx } from 'vltx';
 
-const v = Vault.openForWriting({ filename: 'secrets/production.vault' });
+const v = Vltx.openForWriting({ filename: 'secrets/production.vault' });
 v.set('NEW_SECRET', 'super-secret-value');
 v.replace('API_KEY', 'sk-live-newkey456');
 v.write();
@@ -307,16 +307,16 @@ v.write();
 
 **CommonJS**
 ```js
-const { Vault } = require('vault');
+const { Vltx } = require('vltx');
 
-const v = Vault.openForWriting({ filename: 'secrets/production.vault' });
+const v = Vltx.openForWriting({ filename: 'secrets/production.vault' });
 v.set('NEW_SECRET', 'super-secret-value');
 v.write();
 ```
 
 ---
 
-#### [`Vault.open(opts)`](API.md#module_core/vault--module.exports.open) — full control
+#### [`Vltx.open(opts)`](API.md#module_core/vltx--module.exports.open) — full control
 
 Generic opener. Passes the full `VaultConfig` directly to the constructor.
 Only throws if `opts.filename` is provided but does not exist. No other
@@ -325,23 +325,23 @@ key material `opts` contains.
 
 **ESM**
 ```js
-import { Vault } from 'vault';
+import { Vltx } from 'vltx';
 
 // Read and write in one call
-const v = Vault.open({
+const v = Vltx.open({
     filename: 'secrets/production.vault',
     privateKeyFilename: '/run/secrets/vault.rsa',
 });
 
 // Or open with no file at all (useful for in-memory vaults)
-const mem = Vault.open({ publicKey: myPublicKeyPem });
+const mem = Vltx.open({ publicKey: myPublicKeyPem });
 ```
 
 **CommonJS**
 ```js
-const { Vault } = require('vault');
+const { Vltx } = require('vltx');
 
-const v = Vault.open({
+const v = Vltx.open({
     filename: 'secrets/production.vault',
     privateKeyFilename: '/run/secrets/vault.rsa',
 });
@@ -358,9 +358,9 @@ memory.
 
 **ESM**
 ```js
-import { Vault } from 'vault';
+import { Vltx } from 'vltx';
 
-const v = Vault.openForReading({
+const v = Vltx.openForReading({
     filename: 'secrets/production.vault',
     privateKeyFilename: '/run/secrets/vault.rsa',
 });
@@ -377,9 +377,9 @@ v.unlock({ privateKeyFilename: '/run/secrets/vault.rsa' });
 
 **CommonJS**
 ```js
-const { Vault } = require('vault');
+const { Vltx } = require('vltx');
 
-const v = Vault.openForReading({
+const v = Vltx.openForReading({
     filename: 'secrets/production.vault',
     privateKeyFilename: '/run/secrets/vault.rsa',
 });
@@ -393,13 +393,13 @@ v.unlock({ privateKeyFilename: '/run/secrets/vault.rsa' });
 
 #### Direct instantiation (advanced)
 
-`new Vault(opts)` is equivalent to `Vault.open()` but skips the
+`new Vltx(opts)` is equivalent to `Vltx.open()` but skips the
 file-existence check. **Using a factory method is the recommended approach.**
 
 ```js
-import { Vault } from 'vault';
+import { Vltx } from 'vltx';
 
-const v = new Vault({
+const v = new Vltx({
     filename: 'secrets/production.vault',
     privateKeyFilename: '/run/secrets/vault.rsa',
 });

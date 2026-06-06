@@ -1,13 +1,13 @@
 /**
  * Environment-based vault configuration resolver.
  *
- * Merges caller overrides with `VAULT_FILE`, `VAULT_KEY_FILE`, and
- * `VAULT_PASSPHRASE` environment variables, falling back to defaults
+ * Merges caller overrides with `VLTX_FILE`, `VLTX_KEY_FILE`, and
+ * `VLTX_PASSPHRASE` environment variables, falling back to defaults
  * of `.vault` and `.vault.rsa` in the current working directory.
  * @module
  */
 import dotenv from 'dotenv';
-import type { VaultConfig } from './vault.js';
+import type { VltxConfig } from './vltx.js';
 import { join } from 'node:path';
 
 dotenv.config({ quiet: true });
@@ -18,8 +18,8 @@ type ConfigDefaults = {
 }
 
 const defaults: ConfigDefaults = {
-    filename: join(process.cwd(), '.vault'),
-    privateKeyFilename: join(process.cwd(), '.vault.rsa')
+    filename: join(process.cwd(), '.vltx'),
+    privateKeyFilename: join(process.cwd(), '.vltx.rsa')
 };
 
 /**
@@ -28,22 +28,22 @@ const defaults: ConfigDefaults = {
  *
  * Resolution order (highest priority first):
  * 1. `overrides` argument
- * 2. Environment variables (`VAULT_FILE`, `VAULT_KEY_FILE`,
- *    `VAULT_PASSPHRASE`)
+ * 2. Environment variables (`VLTX_FILE`, `VLTX_KEY_FILE`,
+ *    `VLTX_PASSPHRASE`)
  * 3. Defaults (`<cwd>/.vault`, `<cwd>/.vault.rsa`)
  *
  * @param overrides - Partial config values that take highest priority.
- * @returns Resolved {@link VaultConfig} with all required fields set.
+ * @returns Resolved {@link VltxConfig} with all required fields set.
  */
-export default function getConfig(overrides: VaultConfig = {}): VaultConfig {
-    const filename: string = overrides.filename || process.env['VAULT_FILE'] ||
+export default function getConfig(overrides: VltxConfig = {}): VltxConfig {
+    const filename: string = overrides.filename || process.env['VLTX_FILE'] ||
         defaults.filename;
     const privateKeyFilename: string = overrides.privateKeyFilename ||
-        process.env['VAULT_KEY_FILE'] || defaults.privateKeyFilename;
+        process.env['VLTX_KEY_FILE'] || defaults.privateKeyFilename;
 
-    const cfg: VaultConfig = { filename, privateKeyFilename };
+    const cfg: VltxConfig = { filename, privateKeyFilename };
 
-    const passphrase = overrides.passphrase || process.env['VAULT_PASSPHRASE'];
+    const passphrase = overrides.passphrase || process.env['VLTX_PASSPHRASE'];
     if (passphrase) {
         cfg.passphrase = passphrase;
     }

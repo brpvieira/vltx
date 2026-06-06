@@ -1,8 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { setupVault as setup } from '../src/index.js';
-import Vault from '../src/core/vault.js';
+import { setupVltx as setup } from '../src/index.js';
+import Vltx from '../src/core/vltx.js';
 import { generateRSAKeyPair } from '../src/core/rsa.js';
 
 vi.mock('../src/core/env.js', () => ({
@@ -28,7 +28,7 @@ afterEach(() => {
     vi.clearAllMocks();
 });
 
-function makeVaultFile(secrets: Record<string, string>): string {
+function makeVltxFile(secrets: Record<string, string>): string {
     const path = join(tmpDir, `vault-${Date.now()}.json`);
     writeFileSync(path, JSON.stringify({ publicKey: publicKeyPem, secrets }));
     return path;
@@ -40,10 +40,10 @@ function getTag(alias: string) {
 }
 
 describe('setup', () => {
-    it('returns a Vault instance', () => {
+    it('returns a Vltx instance', () => {
         const alias = nextAlias();
         injected.push(alias);
-        expect(setup({ alias })).toBeInstanceOf(Vault);
+        expect(setup({ alias })).toBeInstanceOf(Vltx);
     });
 
     it('returns the same cached instance on repeated calls', () => {
@@ -77,24 +77,24 @@ describe('setup', () => {
     });
 
     it('loads the vault from the provided filename', () => {
-        const vaultPath = makeVaultFile({ KEY: 'VALUE' });
+        const vaultPath = makeVltxFile({ KEY: 'VALUE' });
         const alias = nextAlias();
         injected.push(alias);
         expect(setup({ alias, filename: vaultPath }).has('KEY')).toBe(true);
     });
 
-    it('creates a Vault with empty config when getConfig returns no filename', async () => {
+    it('creates a Vltx with empty config when getConfig returns no filename', async () => {
         const mod = await import('../src/core/env.js');
         vi.mocked(mod.default).mockReturnValueOnce({});
         const alias = nextAlias();
         injected.push(alias);
-        expect(setup({ alias, inject: false })).toBeInstanceOf(Vault);
+        expect(setup({ alias, inject: false })).toBeInstanceOf(Vltx);
     });
 });
 
 describe('tag function', () => {
     it('returns the secret value for an existing key', () => {
-        const vaultPath = makeVaultFile({ SECRET: 'hello' });
+        const vaultPath = makeVltxFile({ SECRET: 'hello' });
         const alias = nextAlias();
         injected.push(alias);
         setup({ alias, filename: vaultPath });

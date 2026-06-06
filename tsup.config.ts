@@ -12,7 +12,7 @@ const shared = {
 export default defineConfig([
   {
     ...shared,
-    entry: ['src/index.ts', 'src/core/vault.ts'],
+    entry: ['src/index.ts', 'src/core/vltx.ts'],
     format: ['esm', 'cjs'],
     clean: true,
     dts: true,

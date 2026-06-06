@@ -1,5 +1,5 @@
 {
-  "name": "vault",
+  "name": "vltx",
   "version": "1.0.1",
   "description": "simple secure secret storage",
   "author": "Bernardo Vieira",
@@ -38,10 +38,10 @@
     "LICENSE"
   ],
   "bin": {
-    "vault-cli": "./dist/bin/cli.js"
+    "vltx": "./dist/bin/cli.js"
   },
   "scripts": {
-    "clean": "rm -fr ./dist/* && rm -f .vault*",
+    "clean": "rm -fr ./dist/* && rm -f .vltx*",
     "build": "tsup",
     "postbuild": "chmod +x dist/bin/cli.js",
     "prepublishOnly": "npm run build",

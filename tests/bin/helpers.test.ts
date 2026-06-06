@@ -4,7 +4,7 @@ import { listKeys } from '../../src/bin/helpers.js';
 
 // ─── test helpers ────────────────────────────────────────────────────────────
 
-function makeVault(keys: string[], filename = '/test/.vault'): Vault {
+function makeVault(keys: string[], filename = '/test/.vltx'): Vault {
     return { keys: () => new Set(keys), filename } as unknown as Vault;
 }
 
@@ -22,8 +22,8 @@ describe('listKeys', () => {
     });
 
     it('includes the filename in the heading', () => {
-        listKeys(makeVault([], '/my/.vault'));
-        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('/my/.vault'));
+        listKeys(makeVault([], '/my/.vltx'));
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('/my/.vltx'));
     });
 
     it('shows "(empty)" when the vault has no keys', () => {

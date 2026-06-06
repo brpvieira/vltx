@@ -1,13 +1,13 @@
 /**
- * Core {@link Vault} class and associated configuration types.
+ * Core {@link Vltx} class and associated configuration types.
  *
- * A `Vault` is an RSA-encrypted key-value store backed by a JSON file.
+ * A `Vltx` is an RSA-encrypted key-value store backed by a JSON file.
  * Values are encrypted with the embedded public key and decrypted on
  * demand when a private key is supplied. The class implements the
  * `Map<string, string>` interface and exposes static factory methods
- * ({@link Vault.open}, {@link Vault.openForReading},
- * {@link Vault.openForWriting}) plus instance-level key lifecycle
- * helpers ({@link Vault#lock}, {@link Vault#unlock}).
+ * ({@link Vltx.open}, {@link Vltx.openForReading},
+ * {@link Vltx.openForWriting}) plus instance-level key lifecycle
+ * helpers ({@link Vltx#lock}, {@link Vltx#unlock}).
  * @module
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -16,7 +16,7 @@ import { parsePrivateKey, parsePublicKey, derivePublicKey,
     DEFAULT_PUBLIC_ENCODING, generateRSAKeyPair } from './rsa.js';
 import { isNodeError, stuffString, unstuffString } from './util.js';
 
-/** Options for supplying a private key to a {@link Vault}. */
+/** Options for supplying a private key to a {@link Vltx}. */
 export type PrivateKeyConfig = {
     /** Path to a PEM file containing the private key. */
     privateKeyFilename?: string | undefined,
@@ -27,13 +27,13 @@ export type PrivateKeyConfig = {
 };
 
 /**
- * Configuration options for constructing a {@link Vault}.
+ * Configuration options for constructing a {@link Vltx}.
  * Supply `filename` to load an existing vault file on disk.
  * Supply key material via the inherited {@link PrivateKeyConfig}
  * fields or `publicKey` to enable encryption/decryption without
  * loading a file.
  */
-export type VaultConfig = {
+export type VltxConfig = {
     /** Path to the vault JSON file to read from and write to. */
     filename?: string | undefined,
     /**
@@ -53,10 +53,10 @@ export type VaultConfig = {
  * available; without a private key the raw (encrypted) value is
  * returned instead.
  *
- * Vault files are persisted as JSON containing the public key and
+ * Vltx files are persisted as JSON containing the public key and
  * the encrypted secrets map.
  */
-export default class Vault implements Map<string, string> {
+export default class Vltx implements Map<string, string> {
 
     #filename?: string;
     get filename(): string { return  this.#filename as string; }
@@ -69,7 +69,7 @@ export default class Vault implements Map<string, string> {
     #secrets: Map<string, string> = new Map();
 
     /**
-     * Creates a new Vault instance.
+     * Creates a new Vltx instance.
      *
      * If `opts.filename` is provided the vault file is read
      * immediately, which also sets the public key embedded in that
@@ -80,7 +80,7 @@ export default class Vault implements Map<string, string> {
      * @param opts - Configuration options including key material and
      *   an optional file path.
      */
-    constructor(opts: VaultConfig) {
+    constructor(opts: VltxConfig) {
         if (opts.filename) {
             this.#filename = opts.filename;
             this.tryRead();
@@ -276,7 +276,7 @@ export default class Vault implements Map<string, string> {
     clear(): void { this.#secrets.clear(); }
 
     get [Symbol.toStringTag](): string {
-        return 'Vault';
+        return 'Vltx';
     }
 
     /**
@@ -425,7 +425,7 @@ export default class Vault implements Map<string, string> {
     }
 
     /**
-     * Returns an iterator over `[key, value]` pairs, making `Vault`
+     * Returns an iterator over `[key, value]` pairs, making `Vltx`
      * iterable with `for…of`.
      */
     [Symbol.iterator](): MapIterator<[string, string]> {
@@ -447,13 +447,13 @@ export default class Vault implements Map<string, string> {
      * @param filename - Destination path for the vault JSON file.
      * @param privateKeyOpts - Key material. Must include either
      *   `privateKey` or `privateKeyFilename`.
-     * @returns A configured {@link Vault} backed by `filename`.
+     * @returns A configured {@link Vltx} backed by `filename`.
      * @throws {Error} If neither `privateKey` nor
      *   `privateKeyFilename` is provided.
      */
     static init(
         filename: string, privateKeyOpts: PrivateKeyConfig,
-    ): Vault {
+    ): Vltx {
         if (!privateKeyOpts.privateKey &&
             !privateKeyOpts.privateKeyFilename) {
             throw new Error(
@@ -468,7 +468,7 @@ export default class Vault implements Map<string, string> {
             writeFileSync(privateKeyFilename, privateKey as string);
         }
 
-        const v = new Vault({ ...privateKeyOpts, filename });
+        const v = new Vltx({ ...privateKeyOpts, filename });
         v.write();
         return v;
     }
@@ -476,22 +476,22 @@ export default class Vault implements Map<string, string> {
     /**
      * Opens a vault from the supplied configuration.
      *
-     * Passes `opts` directly to the {@link Vault} constructor.
+     * Passes `opts` directly to the {@link Vltx} constructor.
      * If `opts.filename` is provided the file must already exist;
      * all other validation is left to the caller.
      *
      * @param opts - Full vault configuration.
-     * @returns A configured {@link Vault} instance.
+     * @returns A configured {@link Vltx} instance.
      * @throws {Error} If `opts.filename` is provided but does not exist.
      */
-    static open(opts: VaultConfig): Vault {
+    static open(opts: VltxConfig): Vltx {
         const { filename } = opts;
 
         if (filename && !existsSync(filename)) {
             throw new Error(`Unable to open safe. ${filename} does not exist`);
         }
 
-        return new Vault(opts);
+        return new Vltx(opts);
     }
 
     /**
@@ -503,12 +503,12 @@ export default class Vault implements Map<string, string> {
      *
      * @param opts - Full vault configuration. Only `filename` is
      *   used; all key material is ignored.
-     * @returns A {@link Vault} with `canEncrypt` true and
+     * @returns A {@link Vltx} with `canEncrypt` true and
      *   `canDecrypt` false.
      * @throws {Error} If `opts.filename` is not provided.
      * @throws {Error} If `opts.filename` does not exist.
      */
-    static openForWriting(opts: VaultConfig): Vault {
+    static openForWriting(opts: VltxConfig): Vltx {
         const { filename } = opts;
 
         if (!filename) {
@@ -519,7 +519,7 @@ export default class Vault implements Map<string, string> {
             throw new Error(`Unable to open safe. ${filename} does not exist`);
         }
 
-        return new Vault({ filename });
+        return new Vltx({ filename });
     }
 
     /**
@@ -532,13 +532,13 @@ export default class Vault implements Map<string, string> {
      * @param opts - Full vault configuration. `filename` and at
      *   least one of `privateKeyFilename` or `privateKey` are
      *   required.
-     * @returns A {@link Vault} with `canDecrypt` true.
+     * @returns A {@link Vltx} with `canDecrypt` true.
      * @throws {Error} If `opts.filename` is not provided.
      * @throws {Error} If `opts.filename` does not exist.
      * @throws {Error} If no private key is provided.
      * @throws {Error} If the private key cannot decrypt the vault.
      */
-    static openForReading(opts: VaultConfig): Vault {
+    static openForReading(opts: VltxConfig): Vltx {
         const { filename, privateKeyFilename, privateKey } = opts;
 
         if (!filename) {
@@ -553,7 +553,7 @@ export default class Vault implements Map<string, string> {
             throw new Error('A private key is required to open the vault');
         }
 
-        const v = new Vault(opts);
+        const v = new Vltx(opts);
         if (!v.canDecrypt) {
             throw new Error('Unable to open safe, check private key and passphrase');
         }

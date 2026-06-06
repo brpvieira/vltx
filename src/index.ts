@@ -1,19 +1,19 @@
- import Vault, { type VaultConfig } from './core/vault.js';
+ import Vltx, { type VltxConfig } from './core/vltx.js';
 import getConfig from './core/env.js';
 
-const vaults = new Map<string, Vault>();
+const vaults = new Map<string, Vltx>();
 
-type VaultModuleConfig = VaultConfig & {
+type VltxModuleConfig = VltxConfig & {
     alias?: string,
     inject?: boolean
 };
 
  const DEFAULTS = {
-     alias: 'vault',
+     alias: 'vltx',
      inject: true
  } as const;
 
-function vaultTag(vault: Vault, strings: TemplateStringsArray,
+function vaultTag(vault: Vltx, strings: TemplateStringsArray,
      ...values: unknown[]): string {
     if(values?.length > 0)  {
         throw new Error('Interpolation in not allowed.');
@@ -27,25 +27,25 @@ function vaultTag(vault: Vault, strings: TemplateStringsArray,
  * `inject` is true, registers a `alias\`KEY\`` tag function on `global`.
  *
  * Calls with the same `alias` are idempotent — the first call creates
- * and caches the {@link Vault}; subsequent calls return the cached instance.
+ * and caches the {@link Vltx}; subsequent calls return the cached instance.
  *
  * @param args - Configuration object.
  * @param args.filename - Path to the vault file; falls back to the
- *   `VAULT_FILE` environment variable, then `.vault`.
- * @param args.alias - Name of the global tag function (default: `'vault'`).
+ *   `VLTX_FILE` environment variable, then `.vltx`.
+ * @param args.alias - Name of the global tag function (default: `'vltx'`).
  * @param args.inject - Register the tag function on `global`
  *   (default: `true`). Pass `false` to skip global registration and
- *   use the returned {@link Vault} directly.
- * @returns The initialized {@link Vault} instance.
+ *   use the returned {@link Vltx} directly.
+ * @returns The initialized {@link Vltx} instance.
  */
-export function setupVault(args: VaultModuleConfig = {}) {
-    let v: Vault;
-    const opts: VaultModuleConfig = { ...DEFAULTS, ...args };
+export function setupVltx(args: VltxModuleConfig = {}) {
+    let v: Vltx;
+    const opts: VltxModuleConfig = { ...DEFAULTS, ...args };
     if (vaults.has(opts.alias!)) {
         v = vaults.get(opts.alias!)!;
     } else {
-        const cfg = getConfig(opts as VaultConfig);
-        v = new Vault(cfg);
+        const cfg = getConfig(opts as VltxConfig);
+        v = new Vltx(cfg);
         vaults.set(opts.alias!, v);
     }
 

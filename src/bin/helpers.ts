@@ -1,4 +1,4 @@
-import Vault from '../core/vault.js';
+import Vltx from '../core/vltx.js';
 
 /**
  * Prints all secret keys in `v` as a formatted, sorted list.
@@ -6,7 +6,7 @@ import Vault from '../core/vault.js';
  * @param v - The vault whose keys to display.
  * @returns {void}
  */
-export function listKeys(v: Vault): void {
+export function listKeys(v: Vltx): void {
     const keys = [...v.keys()].sort();
     const n = keys.length;
     const noun = n === 1 ? 'secret' : 'secrets';

@@ -3,9 +3,9 @@
 <dl>
 <dt><a href="#module_core/env">core/env</a></dt>
 <dd><p>Environment-based vault configuration resolver.</p>
-<p>Merges caller overrides with <code>VAULT_FILE</code>, <code>VAULT_KEY_FILE</code>, and
-<code>VAULT_PASSPHRASE</code> environment variables, falling back to defaults
-of <code>.vault</code> and <code>.vault.rsa</code> in the current working directory.</p>
+<p>Merges caller overrides with <code>VLTX_FILE</code>, <code>VLTX_KEY_FILE</code>, and
+<code>VLTX_PASSPHRASE</code> environment variables, falling back to defaults
+of <code>.vltx</code> and <code>.vltx.rsa</code> in the current working directory.</p>
 </dd>
 <dt><a href="#module_core/logger">core/logger</a></dt>
 <dd><p>Structured logger for CLI output.</p>
@@ -26,14 +26,14 @@ ensure each RSA encryption of the same plaintext produces a unique
 ciphertext, and a Node.js <code>ErrnoException</code> type guard.</p>
 </dd>
 <dt><a href="#module_core/vault">core/vault</a></dt>
-<dd><p>Core <a href="Vault">Vault</a> class and associated configuration types.</p>
-<p>A <code>Vault</code> is an RSA-encrypted key-value store backed by a JSON file.
+<dd><p>Core <a href="Vltx">Vltx</a> class and associated configuration types.</p>
+<p>A <code>Vltx</code> is an RSA-encrypted key-value store backed by a JSON file.
 Values are encrypted with the embedded public key and decrypted on
 demand when a private key is supplied. The class implements the
 <code>Map&lt;string, string&gt;</code> interface and exposes static factory methods
-(<a href="Vault.open">Vault.open</a>, <a href="Vault.openForReading">Vault.openForReading</a>,
-<a href="Vault.openForWriting">Vault.openForWriting</a>) plus instance-level key lifecycle
-helpers (<a href="Vault#lock">Vault#lock</a>, <a href="Vault#unlock">Vault#unlock</a>).</p>
+(<a href="Vltx.open">Vltx.open</a>, <a href="Vltx.openForReading">Vltx.openForReading</a>,
+<a href="Vltx.openForWriting">Vltx.openForWriting</a>) plus instance-level key lifecycle
+helpers (<a href="Vltx#lock">Vltx#lock</a>, <a href="Vltx#unlock">Vltx#unlock</a>).</p>
 </dd>
 </dl>
 
@@ -78,9 +78,9 @@ vault to stdout.</p>
 ## core/env
 Environment-based vault configuration resolver.
 
-Merges caller overrides with `VAULT_FILE`, `VAULT_KEY_FILE`, and
-`VAULT_PASSPHRASE` environment variables, falling back to defaults
-of `.vault` and `.vault.rsa` in the current working directory.
+Merges caller overrides with `VLTX_FILE`, `VLTX_KEY_FILE`, and
+`VLTX_PASSPHRASE` environment variables, falling back to defaults
+of `.vltx` and `.vltx.rsa` in the current working directory.
 
 <a name="exp_module_core/env--module.exports"></a>
 
@@ -90,12 +90,12 @@ variables and built-in defaults.
 
 Resolution order (highest priority first):
 1. `overrides` argument
-2. Environment variables (`VAULT_FILE`, `VAULT_KEY_FILE`,
-   `VAULT_PASSPHRASE`)
-3. Defaults (`<cwd>/.vault`, `<cwd>/.vault.rsa`)
+2. Environment variables (`VLTX_FILE`, `VLTX_KEY_FILE`,
+   `VLTX_PASSPHRASE`)
+3. Defaults (`<cwd>/.vltx`, `<cwd>/.vltx.rsa`)
 
 **Kind**: Exported function  
-**Returns**: Resolved [VaultConfig](VaultConfig) with all required fields set.  
+**Returns**: Resolved [VltxConfig](VltxConfig) with all required fields set.  
 
 | Param | Description |
 | --- | --- |
@@ -367,15 +367,15 @@ Type guard that narrows `error` to `NodeJS.ErrnoException`.
 <a name="module_core/vault"></a>
 
 ## core/vault
-Core [Vault](Vault) class and associated configuration types.
+Core [Vltx](Vltx) class and associated configuration types.
 
-A `Vault` is an RSA-encrypted key-value store backed by a JSON file.
+A `Vltx` is an RSA-encrypted key-value store backed by a JSON file.
 Values are encrypted with the embedded public key and decrypted on
 demand when a private key is supplied. The class implements the
 `Map<string, string>` interface and exposes static factory methods
-([Vault.open](Vault.open), [Vault.openForReading](Vault.openForReading),
-[Vault.openForWriting](Vault.openForWriting)) plus instance-level key lifecycle
-helpers ([Vault#lock](Vault#lock), [Vault#unlock](Vault#unlock)).
+([Vltx.open](Vltx.open), [Vltx.openForReading](Vltx.openForReading),
+[Vltx.openForWriting](Vltx.openForWriting)) plus instance-level key lifecycle
+helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
 
 
 * [core/vault](#module_core/vault)
@@ -425,14 +425,14 @@ Reading a value transparently decrypts it when a private key is
 available; without a private key the raw (encrypted) value is
 returned instead.
 
-Vault files are persisted as JSON containing the public key and
+Vltx files are persisted as JSON containing the public key and
 the encrypted secrets map.
 
 **Kind**: Exported class  
 <a name="new_module_core/vault--module.exports_new"></a>
 
 #### new module.exports(opts)
-Creates a new Vault instance.
+Creates a new Vltx instance.
 
 If `opts.filename` is provided the vault file is read
 immediately, which also sets the public key embedded in that
@@ -760,7 +760,7 @@ The returned instance has its filename stored and is ready
 for both encryption and decryption.
 
 **Kind**: static method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-**Returns**: A configured [Vault](Vault) backed by `filename`.  
+**Returns**: A configured [Vltx](Vltx) backed by `filename`.  
 **Throws**:
 
 - <code>Error</code> If neither `privateKey` nor
@@ -777,12 +777,12 @@ for both encryption and decryption.
 #### module.exports.open(opts) ⇒
 Opens a vault from the supplied configuration.
 
-Passes `opts` directly to the [Vault](Vault) constructor.
+Passes `opts` directly to the [Vltx](Vltx) constructor.
 If `opts.filename` is provided the file must already exist;
 all other validation is left to the caller.
 
 **Kind**: static method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-**Returns**: A configured [Vault](Vault) instance.  
+**Returns**: A configured [Vltx](Vltx) instance.  
 **Throws**:
 
 - <code>Error</code> If `opts.filename` is provided but does not exist.
@@ -802,7 +802,7 @@ private key material from `opts` is forwarded to the
 constructor, so the returned vault has `canDecrypt` false.
 
 **Kind**: static method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-**Returns**: A [Vault](Vault) with `canEncrypt` true and
+**Returns**: A [Vltx](Vltx) with `canEncrypt` true and
   `canDecrypt` false.  
 **Throws**:
 
@@ -824,7 +824,7 @@ secrets, then unlocks the vault with the private key in
 `opts`.
 
 **Kind**: static method of [<code>module.exports</code>](#exp_module_core/vault--module.exports)  
-**Returns**: A [Vault](Vault) with `canDecrypt` true.  
+**Returns**: A [Vltx](Vltx) with `canDecrypt` true.  
 **Throws**:
 
 - <code>Error</code> If `opts.filename` is not provided.

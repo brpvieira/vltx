@@ -11,7 +11,7 @@ function addVaultFile(y: Argv): Argv {
         alias: 'f',
         type: 'string',
         describe: 'Path to the vault JSON file to create' +
-            ' [$VAULT_FILE]',
+            ' [$VLTX_FILE]',
     });
 }
 
@@ -21,13 +21,13 @@ function addKeyFileAndPassphrase(y: Argv): Argv {
             alias: 'k',
             type: 'string',
             describe: 'Private key path (created if absent)' +
-                ' [$VAULT_KEY_FILE]',
+                ' [$VLTX_KEY_FILE]',
         })
         .option('passphrase', {
             alias: 'p',
             type: 'string',
             describe: 'Passphrase to protect the private key' +
-                ' [$VAULT_PASSPHRASE]',
+                ' [$VLTX_PASSPHRASE]',
         });
 }
 
@@ -50,7 +50,7 @@ function addValue(y: Argv): Argv {
 }
 
 const cli = yargs(hideBin(process.argv))
-    .scriptName('vault-cli')
+    .scriptName('vltx')
     .usage('$0 <command> [options]')
 
     // -- init ----------------------------------------------------─
