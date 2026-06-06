@@ -243,6 +243,38 @@ const dbUrl: string = secret`DB_URL`;
 
 ---
 
+### Cache management
+
+Because ESM caches modules, the vault instances created by `setup()` persist for the entire process lifetime. Two functions let you bust that cache when needed.
+
+#### `remove(alias)`
+
+Removes one cached instance by its alias. The next `setup()` call with the same alias will create a fresh instance — useful when a vault needs to be reconfigured (e.g. a different file or key) without restarting the process.
+
+```js
+import { setup, remove } from 'vltx';
+
+const v1 = setup({ alias: 'main', filename: 'dev.vault' });
+remove('main');
+const v2 = setup({ alias: 'main', filename: 'prod.vault' }); // fresh instance
+```
+
+Returns the removed `Vltx` instance, or `undefined` if the alias was not found.
+
+#### `clearAll()`
+
+Removes all cached instances at once. Intended primarily for test environments that need a clean slate between test cases.
+
+```js
+import { setup, clearAll } from 'vltx';
+
+afterEach(() => {
+    clearAll(); // each test starts with an empty cache
+});
+```
+
+---
+
 ### Vltx class API
 
 The `Vltx` class exposes three static factory methods and two key-lifecycle

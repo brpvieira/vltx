@@ -5,7 +5,7 @@ export { Vltx, MAX_SECRET_BYTES };
 export default Vltx;
 export type { VltxConfig };
 
- const vaults = new Map<string, Vltx>();
+let vaults = new Map<string, Vltx>();
 
 type VltxModuleConfig = VltxConfig & {
     alias?: string
@@ -50,4 +50,35 @@ export function setup(args: VltxModuleConfig = {}) {
     }
 
     return v;
+}
+
+/**
+ * Removes a cached {@link Vltx} instance by alias.
+ *
+ * After removal, the next {@link setup} call with the same alias will create
+ * a fresh instance, making this useful when a vault needs to be reconfigured
+ * (e.g., a different `filename` or key) without restarting the process.
+ *
+ * @param alias - The cache key used when the vault was created via {@link setup}.
+ * @returns The removed {@link Vltx} instance, or `undefined` if the alias was
+ *   not found in the cache.
+ */
+export function remove(alias: string): Vltx | undefined {
+    if (!vaults.has(alias)) {
+        return undefined;
+    }
+    const v = vaults.get(alias);
+    vaults.delete(alias);
+    return v;
+}
+
+/**
+ * Removes all cached {@link Vltx} instances.
+ *
+ * Subsequent {@link setup} calls will create new instances from scratch.
+ * Intended primarily for test environments that need a clean slate between
+ * test cases.
+ */
+export function clearAll() {
+    vaults = new Map<string, Vltx>();
 }
