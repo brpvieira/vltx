@@ -28,9 +28,9 @@ function addKeyFileAndPassphrase(y: Argv): Argv {
         })
         .option('passphrase', {
             alias: 'p',
-            type: 'string',
-            describe: 'Passphrase to protect the private key' +
-                ' [$VLTX_PASSPHRASE]',
+            type: 'boolean',
+            describe: 'Read passphrase from stdin (piped) or an interactive' +
+                ' prompt — prefer $VLTX_PASSPHRASE via .env to avoid shell history',
         });
 }
 

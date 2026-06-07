@@ -59,7 +59,11 @@ npx vltx init --vault-file secrets/production.vault --key-file ~/.keys/prod.rsa
 Protect the private key with a passphrase:
 
 ```sh
-npx vltx init --passphrase "my passphrase"
+# Interactive prompt (passphrase is never visible in shell history):
+npx vltx init --passphrase
+
+# Pipe it in from a password manager or clipboard:
+pbpaste | npx vltx init --passphrase
 ```
 
 ---
@@ -107,7 +111,8 @@ Decrypting requires the private key:
 npx vltx get DB_URL
 # postgres://user:pass@host/db
 
-npx vltx get DB_URL --key-file ~/.keys/prod.rsa --passphrase "my passphrase"
+# With a non-default key file — passphrase entered at the prompt:
+npx vltx get DB_URL --key-file ~/.keys/prod.rsa --passphrase
 ```
 
 ---
@@ -137,6 +142,14 @@ Place them in a `.env` file at the project root — the `vltx` CLI loads it auto
 VLTX_FILE=secrets/production.vault
 VLTX_KEY_FILE=~/.keys/prod.rsa
 ```
+
+**Passphrase options — choose the right one for your context:**
+
+| Context | Recommended approach |
+|---|---|
+| Local development | `--passphrase` flag → interactive prompt (never appears in shell history) |
+| CI / automation | `VLTX_PASSPHRASE` in environment or `.env` — never pass the value inline |
+| Scripted / piped | `pbpaste \| vltx get KEY --passphrase` or `cat secret.txt \| vltx get KEY --passphrase` |
 
 > [!NOTE]
 > `.env` loading is a CLI-only feature. When using the `vltx` package as a library, you may use dotenv followed by `dotenv.config()` before calling `setup()` if you rely on a `.env` file for `VLTX_FILE`, `VLTX_KEY_FILE`, or `VLTX_PASSPHRASE`.
@@ -240,6 +253,38 @@ const dbUrl: string = secret`DB_URL`;
 | `alias`    | `string`  | `'vltx'`  | Cache key for this vault instance     |
 
 `setup()` is idempotent — repeated calls with the same alias return the cached `Vltx` instance. The vault file path is resolved from `filename`, then `VLTX_FILE`, then `.vltx` in the current directory.
+
+---
+
+### Cache management
+
+Because ESM caches modules, the vault instances created by `setup()` persist for the entire process lifetime. Two functions let you bust that cache when needed.
+
+#### `remove(alias)`
+
+Removes one cached instance by its alias. The next `setup()` call with the same alias will create a fresh instance — useful when a vault needs to be reconfigured (e.g. a different file or key) without restarting the process.
+
+```js
+import { setup, remove } from 'vltx';
+
+const v1 = setup({ alias: 'main', filename: 'dev.vault' });
+remove('main');
+const v2 = setup({ alias: 'main', filename: 'prod.vault' }); // fresh instance
+```
+
+Returns the removed `Vltx` instance, or `undefined` if the alias was not found.
+
+#### `clearAll()`
+
+Removes all cached instances at once. Intended primarily for test environments that need a clean slate between test cases.
+
+```js
+import { setup, clearAll } from 'vltx';
+
+afterEach(() => {
+    clearAll(); // each test starts with an empty cache
+});
+```
 
 ---
 
@@ -443,3 +488,4 @@ const v = new Vltx({
 - Secret values are limited to **190 UTF-8 bytes** — a constraint of RSA block encryption (the stuffed form must fit the 446-byte OAEP payload). Use a reference (e.g. a filename or URL) for larger payloads.
 - The vault file contains only the public key and ciphertext — it is safe to commit, distribute, or embed in container images.
 - The private key is **never** written into the vault file. Guard it as you would a production password.
+- The `--passphrase` flag **never accepts a value on the command line**. It either prompts interactively (TTY) or reads from stdin (pipe), so the passphrase is never exposed in shell history or `/proc/<pid>/cmdline`. Use `VLTX_PASSPHRASE` for non-interactive environments.

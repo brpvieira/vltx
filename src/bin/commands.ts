@@ -1,5 +1,6 @@
 import Vltx, { type VltxConfig } from '../core/vltx.js';
 import type { ArgumentsCamelCase } from 'yargs';
+import { createInterface } from 'node:readline';
 import getConfig from '../core/env.js';
 import { listKeys } from './helpers.js';
 import { log, error } from '../core/logger.js';
@@ -7,7 +8,7 @@ import { log, error } from '../core/logger.js';
 type CommandLineArguments = Partial<{
     'vault-file'?: string | undefined,
     'key-file'?: string | undefined,
-    passphrase?: string | undefined,
+    passphrase?: boolean | undefined,
     key?: string | undefined,
     value?: string | undefined
 }>
@@ -19,20 +20,48 @@ type CommandLineArguments = Partial<{
 export type VltxCliConfig = VltxConfig &
     { filename: string; privateKeyFilename: string };
 
+function promptInteractive(): Promise<string> {
+    const rl = createInterface({ input: process.stdin, output: process.stderr });
+    // Suppress echo of typed characters while still showing the prompt.
+    (rl as unknown as { _writeToOutput: (_s: string) => void })._writeToOutput =
+        (s: string) => { if (s === 'Passphrase: ') process.stderr.write(s); };
+    return new Promise<string>((resolve) => {
+        rl.question('Passphrase: ', (answer) => {
+            process.stderr.write('\n');
+            rl.close();
+            resolve(answer);
+        });
+    });
+}
+
+function readPassphrase(): Promise<string> {
+    if (!process.stdin.isTTY) {
+        return new Promise<string>((resolve, reject) => {
+            let data = '';
+            process.stdin.setEncoding('utf8');
+            process.stdin.on('data', (chunk) => { data += chunk as string; });
+            process.stdin.on('end', () => resolve(data.trimEnd()));
+            process.stdin.on('error', reject);
+        });
+    }
+    return promptInteractive();
+}
+
 /**
  * Merges CLI arguments with environment-derived defaults to produce
- * a fully resolved vault configuration.
+ * a fully resolved vault configuration. When `--passphrase` is given,
+ * reads the passphrase from stdin (piped) or an interactive prompt (TTY).
  *
  * @param argv - Parsed yargs arguments from the CLI.
  * @returns Resolved configuration with filename and key paths.
  */
-export function resolveConfig(argv: ArgumentsCamelCase): VltxCliConfig {
+export async function resolveConfig(argv: ArgumentsCamelCase): Promise<VltxCliConfig> {
     const args: VltxConfig = {};
     const { 'vault-file': vaultFile,
         'key-file': keyFile, passphrase } = argv as CommandLineArguments;
     if (vaultFile) args.filename = vaultFile;
     if (keyFile) args.privateKeyFilename = keyFile;
-    if (passphrase) args.passphrase = passphrase;
+    if (passphrase) args.passphrase = await readPassphrase();
     return getConfig(args) as VltxCliConfig;
 }
 
@@ -41,12 +70,11 @@ export function resolveConfig(argv: ArgumentsCamelCase): VltxCliConfig {
  * then logs their file paths to stdout.
  *
  * @param argv - Parsed yargs arguments from the CLI.
- * @returns {void}
  */
-export function initHandler(argv: ArgumentsCamelCase): void {
-    const cfg = resolveConfig(argv);
+export async function initHandler(argv: ArgumentsCamelCase): Promise<void> {
+    const cfg = await resolveConfig(argv);
     Vltx.init(cfg.filename!, cfg);
-    log(`Vault initialised:  ${cfg.filename}`);
+    log(`Vault initialized:  ${cfg.filename}`);
     log(`Private key:        ${cfg.privateKeyFilename}`);
 }
 
@@ -55,10 +83,9 @@ export function initHandler(argv: ArgumentsCamelCase): void {
  * the vault and persists the change.
  *
  * @param argv - Parsed yargs arguments including `key` and `value`.
- * @returns {void}
  */
-export function addHandler(argv: ArgumentsCamelCase): void {
-    const cfg = resolveConfig(argv);
+export async function addHandler(argv: ArgumentsCamelCase): Promise<void> {
+    const cfg = await resolveConfig(argv);
     const v = Vltx.openForWriting(cfg);
     const { key, value } = argv as CommandLineArguments;
     v.set(key as string, value as string);
@@ -71,10 +98,9 @@ export function addHandler(argv: ArgumentsCamelCase): void {
  * the vault. Exits with code 1 if the key does not exist.
  *
  * @param argv - Parsed yargs arguments including `key`.
- * @returns {void}
  */
-export function deleteHandler(argv: ArgumentsCamelCase): void {
-    const cfg = resolveConfig(argv);
+export async function deleteHandler(argv: ArgumentsCamelCase): Promise<void> {
+    const cfg = await resolveConfig(argv);
     const v = Vltx.openForWriting(cfg);
     const { key } = argv as CommandLineArguments;
     if (!v.delete(key!)) {
@@ -90,10 +116,9 @@ export function deleteHandler(argv: ArgumentsCamelCase): void {
  * secret and persists the vault.
  *
  * @param argv - Parsed yargs arguments including `key` and `value`.
- * @returns {void}
  */
-export function replaceHandler(argv: ArgumentsCamelCase): void {
-    const cfg = resolveConfig(argv);
+export async function replaceHandler(argv: ArgumentsCamelCase): Promise<void> {
+    const cfg = await resolveConfig(argv);
     const v = Vltx.openForWriting(cfg);
     const { key, value } = argv as CommandLineArguments;
     v.replace(key as string, value as string);
@@ -106,10 +131,9 @@ export function replaceHandler(argv: ArgumentsCamelCase): void {
  * to stdout. Exits with code 1 if the key does not exist.
  *
  * @param argv - Parsed yargs arguments including `key`.
- * @returns {void}
  */
-export function getHandler(argv: ArgumentsCamelCase): void {
-    const cfg = resolveConfig(argv);
+export async function getHandler(argv: ArgumentsCamelCase): Promise<void> {
+    const cfg = await resolveConfig(argv);
     const v = Vltx.openForReading(cfg);
     const { key } = argv as CommandLineArguments;
     const value = v.get(key!);
@@ -125,10 +149,9 @@ export function getHandler(argv: ArgumentsCamelCase): void {
  * vault to stdout.
  *
  * @param argv - Parsed yargs arguments from the CLI.
- * @returns {void}
  */
-export function listHandler(argv: ArgumentsCamelCase): void {
-    const cfg = resolveConfig(argv);
+export async function listHandler(argv: ArgumentsCamelCase): Promise<void> {
+    const cfg = await resolveConfig(argv);
     const v = Vltx.openForWriting(cfg);
     listKeys(v);
 }

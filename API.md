@@ -36,29 +36,30 @@ helpers (<a href="Vltx#lock">Vltx#lock</a>, <a href="Vltx#unlock">Vltx#unlock</a
 <dl>
 <dt><a href="#resolveConfig">resolveConfig(argv)</a> ⇒</dt>
 <dd><p>Merges CLI arguments with environment-derived defaults to produce
-a fully resolved vault configuration.</p>
+a fully resolved vault configuration. When <code>--passphrase</code> is given,
+reads the passphrase from stdin (piped) or an interactive prompt (TTY).</p>
 </dd>
-<dt><a href="#initHandler">initHandler(argv)</a> ⇒ <code>void</code></dt>
+<dt><a href="#initHandler">initHandler(argv)</a></dt>
 <dd><p>Handles the <code>init</code> command: creates a new vault and RSA key pair,
 then logs their file paths to stdout.</p>
 </dd>
-<dt><a href="#addHandler">addHandler(argv)</a> ⇒ <code>void</code></dt>
+<dt><a href="#addHandler">addHandler(argv)</a></dt>
 <dd><p>Handles the <code>add</code> command: inserts a new key-value secret into
 the vault and persists the change.</p>
 </dd>
-<dt><a href="#deleteHandler">deleteHandler(argv)</a> ⇒ <code>void</code></dt>
+<dt><a href="#deleteHandler">deleteHandler(argv)</a></dt>
 <dd><p>Handles the <code>delete</code> command: removes a secret by key and persists
 the vault. Exits with code 1 if the key does not exist.</p>
 </dd>
-<dt><a href="#replaceHandler">replaceHandler(argv)</a> ⇒ <code>void</code></dt>
+<dt><a href="#replaceHandler">replaceHandler(argv)</a></dt>
 <dd><p>Handles the <code>replace</code> command: overwrites the value of an existing
 secret and persists the vault.</p>
 </dd>
-<dt><a href="#getHandler">getHandler(argv)</a> ⇒ <code>void</code></dt>
+<dt><a href="#getHandler">getHandler(argv)</a></dt>
 <dd><p>Handles the <code>get</code> command: retrieves a secret value and prints it
 to stdout. Exits with code 1 if the key does not exist.</p>
 </dd>
-<dt><a href="#listHandler">listHandler(argv)</a> ⇒ <code>void</code></dt>
+<dt><a href="#listHandler">listHandler(argv)</a></dt>
 <dd><p>Handles the <code>list</code> command: prints all secret keys stored in the
 vault to stdout.</p>
 </dd>
@@ -943,7 +944,8 @@ secrets, then unlocks the vault with the private key in
 
 ## resolveConfig(argv) ⇒
 Merges CLI arguments with environment-derived defaults to produce
-a fully resolved vault configuration.
+a fully resolved vault configuration. When `--passphrase` is given,
+reads the passphrase from stdin (piped) or an interactive prompt (TTY).
 
 **Kind**: global function  
 **Returns**: Resolved configuration with filename and key paths.  
@@ -954,7 +956,7 @@ a fully resolved vault configuration.
 
 <a name="initHandler"></a>
 
-## initHandler(argv) ⇒ <code>void</code>
+## initHandler(argv)
 Handles the `init` command: creates a new vault and RSA key pair,
 then logs their file paths to stdout.
 
@@ -966,7 +968,7 @@ then logs their file paths to stdout.
 
 <a name="addHandler"></a>
 
-## addHandler(argv) ⇒ <code>void</code>
+## addHandler(argv)
 Handles the `add` command: inserts a new key-value secret into
 the vault and persists the change.
 
@@ -978,7 +980,7 @@ the vault and persists the change.
 
 <a name="deleteHandler"></a>
 
-## deleteHandler(argv) ⇒ <code>void</code>
+## deleteHandler(argv)
 Handles the `delete` command: removes a secret by key and persists
 the vault. Exits with code 1 if the key does not exist.
 
@@ -990,7 +992,7 @@ the vault. Exits with code 1 if the key does not exist.
 
 <a name="replaceHandler"></a>
 
-## replaceHandler(argv) ⇒ <code>void</code>
+## replaceHandler(argv)
 Handles the `replace` command: overwrites the value of an existing
 secret and persists the vault.
 
@@ -1002,7 +1004,7 @@ secret and persists the vault.
 
 <a name="getHandler"></a>
 
-## getHandler(argv) ⇒ <code>void</code>
+## getHandler(argv)
 Handles the `get` command: retrieves a secret value and prints it
 to stdout. Exits with code 1 if the key does not exist.
 
@@ -1014,7 +1016,7 @@ to stdout. Exits with code 1 if the key does not exist.
 
 <a name="listHandler"></a>
 
-## listHandler(argv) ⇒ <code>void</code>
+## listHandler(argv)
 Handles the `list` command: prints all secret keys stored in the
 vault to stdout.
 
