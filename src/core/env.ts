@@ -1,3 +1,11 @@
+import type { VltxConfig } from './vltx.js';
+import { join } from 'node:path';
+
+type ConfigDefaults = {
+    filename: string,
+    privateKeyFilename: string
+}
+
 /**
  * Environment-based vault configuration resolver.
  *
@@ -6,15 +14,6 @@
  * of `.vltx` and `.vltx.rsa` in the current working directory.
  * @module env
  */
-import type { VltxConfig } from './vltx.js';
-import { join } from 'node:path';
-
-
-type ConfigDefaults = {
-    filename: string,
-    privateKeyFilename: string
-}
-
 const defaults: ConfigDefaults = {
     filename: join(process.cwd(), '.vltx'),
     privateKeyFilename: join(process.cwd(), '.vltx.rsa')

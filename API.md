@@ -8,6 +8,12 @@ big-endian millisecond timestamps (created/modified), and an RSA-OAEP
 ciphertext payload prepended with a 16-byte random salt. Entries are
 base64-encoded for storage in the vault JSON file.</p>
 </dd>
+<dt><a href="#module_env">env</a></dt>
+<dd><p>Environment-based vault configuration resolver.</p>
+<p>Merges caller overrides with <code>VLTX_FILE</code>, <code>VLTX_KEY_FILE</code>, and
+<code>VLTX_PASSPHRASE</code> environment variables, falling back to defaults
+of <code>.vltx</code> and <code>.vltx.rsa</code> in the current working directory.</p>
+</dd>
 <dt><a href="#module_core/logger">core/logger</a></dt>
 <dd><p>Structured logger for CLI output.</p>
 <p>Provides levelled log functions (<code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code>, <code>log</code>)
@@ -42,6 +48,9 @@ helpers (<a href="Vltx#lock">Vltx#lock</a>, <a href="Vltx#unlock">Vltx#unlock</a
 <dd><p>Merges CLI arguments with environment-derived defaults to produce
 a fully resolved vault configuration. When <code>--passphrase</code> is given,
 reads the passphrase from stdin (piped) or an interactive prompt (TTY).</p>
+<p>Applies the <code>--verbose</code> flag via <a href="setLogLevel">setLogLevel</a> and attaches
+<a href="STD_LOGGER">STD_LOGGER</a> so that library-level log events are forwarded to
+the CLI output streams.</p>
 </dd>
 <dt><a href="#initHandler">initHandler(argv)</a></dt>
 <dd><p>Handles the <code>init</code> command: creates a new vault and RSA key pair,
@@ -314,6 +323,34 @@ instance based on the prefix byte.
 | --- | --- |
 | base64Str | A serialized entry produced by [BaseEntry#serialize](BaseEntry#serialize). |
 
+<a name="module_env"></a>
+
+## env
+Environment-based vault configuration resolver.
+
+Merges caller overrides with `VLTX_FILE`, `VLTX_KEY_FILE`, and
+`VLTX_PASSPHRASE` environment variables, falling back to defaults
+of `.vltx` and `.vltx.rsa` in the current working directory.
+
+<a name="exp_module_env--module.exports"></a>
+
+### module.exports(overrides) ⇒ ⏏
+Resolves vault configuration by merging overrides with environment
+variables and built-in defaults.
+
+Resolution order (highest priority first):
+1. `overrides` argument
+2. Environment variables (`VLTX_FILE`, `VLTX_KEY_FILE`,
+   `VLTX_PASSPHRASE`)
+3. Defaults (`<cwd>/.vltx`, `<cwd>/.vltx.rsa`)
+
+**Kind**: Exported function  
+**Returns**: Resolved [VltxConfig](VltxConfig) with all required fields set.  
+
+| Param | Description |
+| --- | --- |
+| overrides | Partial config values that take highest priority. |
+
 <a name="module_core/logger"></a>
 
 ## core/logger
@@ -331,6 +368,8 @@ The active threshold is controlled via [setLogLevel](setLogLevel).
     * [.warn](#module_core/logger.warn)
     * [.error](#module_core/logger.error)
     * [.log](#module_core/logger.log)
+    * [.NOOP_LOGGER](#module_core/logger.NOOP_LOGGER)
+    * [.STD_LOGGER](#module_core/logger.STD_LOGGER)
     * [.setLogLevel(level)](#module_core/logger.setLogLevel) ⇒ <code>void</code>
     * [._doLog(level, args)](#module_core/logger._doLog) ⇒ <code>void</code>
 
@@ -373,6 +412,23 @@ Logs an `error`-level message to stderr. @param args - Message parts.
 Writes a message at `normal` level: no tag, stdout only. @param args - Message parts.
 
 **Kind**: static constant of [<code>core/logger</code>](#module_core/logger)  
+<a name="module_core/logger.NOOP_LOGGER"></a>
+
+### core/logger.NOOP\_LOGGER
+A [Logger](Logger) whose every handler is a no-op.
+Use as the default when callers supply no logger so that every
+`logger?.level?.()` call is safe without a truthy check.
+
+**Kind**: static constant of [<code>core/logger</code>](#module_core/logger)  
+<a name="module_core/logger.STD_LOGGER"></a>
+
+### core/logger.STD\_LOGGER
+A [Logger](Logger) that delegates each level to the corresponding
+module-level export (`debug`, `info`, `warn`, `error`, `log`).
+Spread this into a [VltxConfig](VltxConfig) to forward library messages
+to the CLI output stream.
+
+**Kind**: static constant of [<code>core/logger</code>](#module_core/logger)  
 <a name="module_core/logger.setLogLevel"></a>
 
 ### core/logger.setLogLevel(level) ⇒ <code>void</code>
@@ -380,11 +436,16 @@ Sets the minimum severity level that produces output.
 Messages whose level is below `level` are silently discarded.
 Defaults to `'info'` at module load time.
 
+Accepts either a [LogLevelName](LogLevelName) string or a numeric verbosity integer
+where `3 = debug`, `2 = info`, `1 = warn`, `0 = silent (error only)`.
+When `level` is `undefined` or not a recognised value the threshold is left
+unchanged.
+
 **Kind**: static method of [<code>core/logger</code>](#module_core/logger)  
 
 | Param | Description |
 | --- | --- |
-| level | The new minimum log level. |
+| level | The new minimum log level as a name or verbosity integer. |
 
 <a name="module_core/logger._doLog"></a>
 
@@ -563,7 +624,7 @@ helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
             * [.MAX_SECRET_BYTES](#module_core/vltx--module.exports.MAX_SECRET_BYTES)
             * [.tagFunction(vault, strings, values)](#module_core/vltx--module.exports.tagFunction) ⇒
                 * [.tagFunction](#module_core/vltx--module.exports.tagFunction.tagFunction)
-            * [.init(filename, privateKeyOpts)](#module_core/vltx--module.exports.init) ⇒
+            * [.init(filename, privateKeyOpts, logger)](#module_core/vltx--module.exports.init) ⇒
             * [.open(opts)](#module_core/vltx--module.exports.open) ⇒
             * [.openForWriting(opts)](#module_core/vltx--module.exports.openForWriting) ⇒
             * [.openForReading(opts)](#module_core/vltx--module.exports.openForReading) ⇒
@@ -982,7 +1043,7 @@ const dbUrl = secret`DB_URL`;
 **Kind**: static property of [<code>tagFunction</code>](#module_core/vltx--module.exports.tagFunction)  
 <a name="module_core/vltx--module.exports.init"></a>
 
-#### module.exports.init(filename, privateKeyOpts) ⇒
+#### module.exports.init(filename, privateKeyOpts, logger) ⇒
 Creates a new vault file at `filename` and persists it to
 disk.
 
@@ -1006,6 +1067,7 @@ for both encryption and decryption.
 | --- | --- |
 | filename | Destination path for the vault JSON file. |
 | privateKeyOpts | Key material. Must include either   `privateKey` or `privateKeyFilename`. |
+| logger | Optional [Logger](Logger) that receives structured   log events during initialization (key generation, file writes).   Pass [STD_LOGGER](STD_LOGGER) to forward events to the CLI output. |
 
 <a name="module_core/vltx--module.exports.open"></a>
 
@@ -1079,8 +1141,12 @@ Merges CLI arguments with environment-derived defaults to produce
 a fully resolved vault configuration. When `--passphrase` is given,
 reads the passphrase from stdin (piped) or an interactive prompt (TTY).
 
+Applies the `--verbose` flag via [setLogLevel](setLogLevel) and attaches
+[STD_LOGGER](STD_LOGGER) so that library-level log events are forwarded to
+the CLI output streams.
+
 **Kind**: global function  
-**Returns**: Resolved configuration with filename and key paths.  
+**Returns**: Resolved configuration with filename, key paths, and logger.  
 
 | Param | Description |
 | --- | --- |
