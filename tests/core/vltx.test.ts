@@ -407,6 +407,18 @@ describe('Vltx.init', () => {
         );
     });
 
+    it('rethrows non-ENOENT errors when checking privateKeyFilename', () => {
+        // Place key path inside a regular file so statSync throws ENOTDIR
+        const blockingFile = join(tmpDir, 'init-notdir-blocker');
+        writeFileSync(blockingFile, '');
+        const keyPath = join(blockingFile, 'key.pem');
+        const vaultPath = join(tmpDir, 'init-notdir.vault.json');
+        assert.throws(
+            () => Vltx.init(vaultPath, { privateKeyFilename: keyPath }),
+            /ENOTDIR/,
+        );
+    });
+
     it('returned vault can immediately write secrets', () => {
         const vaultPath = join(tmpDir, 'init-write.vault.json');
         const v = Vltx.init(vaultPath, { privateKey: privateKeyPem });

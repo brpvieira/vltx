@@ -392,6 +392,7 @@ helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
     * [module.exports](#exp_module_core/vltx--module.exports) ⏏
         * [new module.exports(opts)](#new_module_core/vltx--module.exports_new)
         * _instance_
+            * [.loaded](#module_core/vltx--module.exports+loaded)
             * [.publicKey](#module_core/vltx--module.exports+publicKey)
             * [.canEncrypt](#module_core/vltx--module.exports+canEncrypt)
             * [.canDecrypt](#module_core/vltx--module.exports+canDecrypt)
@@ -460,6 +461,12 @@ automatically when not already loaded from a file.
 | --- | --- |
 | opts | Configuration options including key material and   an optional file path. |
 
+<a name="module_core/vltx--module.exports+loaded"></a>
+
+#### module.exports.loaded
+`true` after the vault file has been successfully read and parsed.
+
+**Kind**: instance property of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 <a name="module_core/vltx--module.exports+publicKey"></a>
 
 #### module.exports.publicKey
@@ -548,7 +555,8 @@ key fields in `opts` are set.
 
 #### module.exports.read(filename) ⇒
 Reads and parses a vault JSON file, replacing the current
-public key and secrets.
+public key and secrets. Sets [loaded](loaded) to `true` on
+success; resets it to `false` at the start of each call.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
@@ -911,6 +919,8 @@ constructor, so the returned vault has `canDecrypt` false.
 
 - <code>Error</code> If `opts.filename` is not provided.
 - <code>Error</code> If `opts.filename` does not exist.
+- <code>Error</code> If the vault file is loaded but contains no
+  valid public key.
 
 
 | Param | Description |
@@ -931,8 +941,8 @@ secrets, then unlocks the vault with the private key in
 **Throws**:
 
 - <code>Error</code> If `opts.filename` is not provided.
-- <code>Error</code> If `opts.filename` does not exist.
 - <code>Error</code> If no private key is provided.
+- <code>Error</code> If `opts.filename` does not exist.
 - <code>Error</code> If the private key cannot decrypt the vault.
 
 
