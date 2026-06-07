@@ -1,43 +1,44 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ArgumentsCamelCase } from 'yargs';
 
-const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError } = vi.hoisted(() => {
-    const mockVaultInstance = {
-        set: vi.fn(),
-        write: vi.fn(),
-        delete: vi.fn().mockReturnValue(true),
-        replace: vi.fn(),
-        get: vi.fn().mockReturnValue('the-value'),
-        filename: '/test/.vltx',
-    };
-    const MockVault = Object.assign(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        vi.fn(function() { return mockVaultInstance; } as any),
-        {
-            init: vi.fn(),
-            openForWriting: vi.fn().mockReturnValue(mockVaultInstance),
-            openForReading: vi.fn().mockReturnValue(mockVaultInstance),
-        },
-    );
-    const mockGetConfig = vi.fn().mockReturnValue({
-        filename: '/test/.vltx',
-        privateKeyFilename: '/test/.vltx.rsa',
+const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError, mockRl } =
+    vi.hoisted(() => {
+        const mockVaultInstance = {
+            set: vi.fn(),
+            write: vi.fn(),
+            delete: vi.fn().mockReturnValue(true),
+            replace: vi.fn(),
+            get: vi.fn().mockReturnValue('the-value'),
+            filename: '/test/.vltx',
+        };
+        const MockVault = Object.assign(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            vi.fn(function() { return mockVaultInstance; } as any),
+            {
+                init: vi.fn(),
+                openForWriting: vi.fn().mockReturnValue(mockVaultInstance),
+                openForReading: vi.fn().mockReturnValue(mockVaultInstance),
+            },
+        );
+        const mockGetConfig = vi.fn().mockReturnValue({
+            filename: '/test/.vltx',
+            privateKeyFilename: '/test/.vltx.rsa',
+        });
+        const mockListKeys = vi.fn();
+        const mockLog = vi.fn();
+        const mockError = vi.fn();
+        const mockRl = {
+            question: vi.fn((_prompt: string, cb: (_answer: string) => void) => cb('test-passphrase')),
+            close: vi.fn(),
+        };
+        return { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError, mockRl };
     });
-    const mockListKeys = vi.fn();
-    const mockLog = vi.fn();
-    const mockError = vi.fn();
-    return { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError };
-});
 
 vi.mock('../../src/core/vltx.js', () => ({ default: MockVault }));
 vi.mock('../../src/core/env.js', () => ({ default: mockGetConfig }));
-vi.mock('../../src/bin/helpers.js', () => ({
-    listKeys: mockListKeys,
-}));
-vi.mock('../../src/core/logger.js', () => ({
-    log: mockLog,
-    error: mockError,
-}));
+vi.mock('../../src/bin/helpers.js', () => ({ listKeys: mockListKeys }));
+vi.mock('../../src/core/logger.js', () => ({ log: mockLog, error: mockError }));
+vi.mock('node:readline', () => ({ createInterface: vi.fn().mockReturnValue(mockRl) }));
 
 import {
     resolveConfig,
@@ -54,57 +55,95 @@ function makeArgv(extra: Record<string, unknown> = {}): ArgumentsCamelCase {
 }
 
 describe('resolveConfig', () => {
-    it('calls getConfig with empty object when no relevant args are provided', () => {
-        resolveConfig(makeArgv());
+    it('calls getConfig with empty object when no relevant args are provided', async () => {
+        await resolveConfig(makeArgv());
         expect(mockGetConfig).toHaveBeenCalledWith({});
     });
 
-    it('passes filename from vault-file arg', () => {
-        resolveConfig(makeArgv({ 'vault-file': '/my/vault' }));
+    it('passes filename from vault-file arg', async () => {
+        await resolveConfig(makeArgv({ 'vault-file': '/my/vault' }));
         expect(mockGetConfig).toHaveBeenCalledWith({ filename: '/my/vault' });
     });
 
-    it('passes privateKeyFilename from key-file arg', () => {
-        resolveConfig(makeArgv({ 'key-file': '/my/key.rsa' }));
+    it('passes privateKeyFilename from key-file arg', async () => {
+        await resolveConfig(makeArgv({ 'key-file': '/my/key.rsa' }));
         expect(mockGetConfig).toHaveBeenCalledWith({ privateKeyFilename: '/my/key.rsa' });
     });
 
-    it('passes passphrase arg', () => {
-        resolveConfig(makeArgv({ passphrase: 'hunter2' }));
-        expect(mockGetConfig).toHaveBeenCalledWith({ passphrase: 'hunter2' });
+    it('prompts for passphrase when --passphrase flag is set', async () => {
+        Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+        await resolveConfig(makeArgv({ passphrase: true }));
+        expect(mockGetConfig).toHaveBeenCalledWith({ passphrase: 'test-passphrase' });
+        Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });
     });
 
-    it('passes all three args together', () => {
-        resolveConfig(makeArgv({ 'vault-file': '/v', 'key-file': '/k', passphrase: 'p' }));
+    it('suppresses character echo but shows the prompt text in interactive mode', async () => {
+        Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+        await resolveConfig(makeArgv({ passphrase: true }));
+        Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });
+
+        const writeToOutput =
+            (mockRl as unknown as { _writeToOutput: (_s: string) => void })._writeToOutput;
+        const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+        writeToOutput('Passphrase: '); // prompt text — should be written
+        writeToOutput('x');            // keypress — should be suppressed
+        expect(stderrSpy).toHaveBeenCalledTimes(1);
+        expect(stderrSpy).toHaveBeenCalledWith('Passphrase: ');
+        stderrSpy.mockRestore();
+    });
+
+    it('reads passphrase from piped stdin when stdin is not a TTY', async () => {
+        const handlers: Record<string, (..._args: unknown[]) => void> = {};
+        const setEncodingSpy = vi.spyOn(process.stdin, 'setEncoding')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .mockReturnValue(process.stdin as any);
+        const onSpy = vi.spyOn(process.stdin, 'on')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .mockImplementation((event: any, fn: any) => { handlers[event] = fn; return process.stdin; });
+
+        const configPromise = resolveConfig(makeArgv({ passphrase: true }));
+        handlers['data']?.('piped-secret');
+        handlers['end']?.();
+        await configPromise;
+
+        expect(mockGetConfig).toHaveBeenCalledWith({ passphrase: 'piped-secret' });
+        setEncodingSpy.mockRestore();
+        onSpy.mockRestore();
+    });
+
+    it('passes all args together with passphrase from prompt', async () => {
+        Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+        await resolveConfig(makeArgv({ 'vault-file': '/v', 'key-file': '/k', passphrase: true }));
         expect(mockGetConfig).toHaveBeenCalledWith({
             filename: '/v',
             privateKeyFilename: '/k',
-            passphrase: 'p',
+            passphrase: 'test-passphrase',
         });
+        Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });
     });
 
-    it('returns the value from getConfig', () => {
-        const result = resolveConfig(makeArgv());
+    it('returns the value from getConfig', async () => {
+        const result = await resolveConfig(makeArgv());
         expect(result).toEqual({ filename: '/test/.vltx', privateKeyFilename: '/test/.vltx.rsa' });
     });
 });
 
 describe('initHandler', () => {
-    it('calls Vault.init with resolved filename and config', () => {
-        initHandler(makeArgv());
+    it('calls Vault.init with resolved filename and config', async () => {
+        await initHandler(makeArgv());
         expect(MockVault.init).toHaveBeenCalledWith(
             '/test/.vltx',
             expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
-    it('logs the vault filename', () => {
-        initHandler(makeArgv());
+    it('logs the vault filename', async () => {
+        await initHandler(makeArgv());
         expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('/test/.vltx'));
     });
 
-    it('logs the private key filename', () => {
-        initHandler(makeArgv());
+    it('logs the private key filename', async () => {
+        await initHandler(makeArgv());
         expect(mockLog).toHaveBeenCalledWith(expect.stringContaining('/test/.vltx.rsa'));
     });
 });
@@ -114,25 +153,25 @@ describe('addHandler', () => {
         MockVault.openForWriting.mockClear();
     });
 
-    it('opens the vault for writing with the resolved config', () => {
-        addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
+    it('opens the vault for writing with the resolved config', async () => {
+        await addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
         expect(MockVault.openForWriting).toHaveBeenCalledWith(
             expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
-    it('calls set with key and value', () => {
-        addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
+    it('calls set with key and value', async () => {
+        await addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
         expect(mockVaultInstance.set).toHaveBeenCalledWith('mykey', 'myval');
     });
 
-    it('calls write after setting', () => {
-        addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
+    it('calls write after setting', async () => {
+        await addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
         expect(mockVaultInstance.write).toHaveBeenCalled();
     });
 
-    it('logs the added key', () => {
-        addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
+    it('logs the added key', async () => {
+        await addHandler(makeArgv({ key: 'mykey', value: 'myval' }));
         expect(mockLog).toHaveBeenCalledWith('Added: mykey');
     });
 });
@@ -150,34 +189,34 @@ describe('deleteHandler', () => {
         exitSpy.mockRestore();
     });
 
-    it('opens the vault for writing with the resolved config', () => {
-        deleteHandler(makeArgv({ key: 'mykey' }));
+    it('opens the vault for writing with the resolved config', async () => {
+        await deleteHandler(makeArgv({ key: 'mykey' }));
         expect(MockVault.openForWriting).toHaveBeenCalledWith(
             expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
-    it('calls delete with the given key', () => {
-        deleteHandler(makeArgv({ key: 'mykey' }));
+    it('calls delete with the given key', async () => {
+        await deleteHandler(makeArgv({ key: 'mykey' }));
         expect(mockVaultInstance.delete).toHaveBeenCalledWith('mykey');
     });
 
-    it('writes and logs when the key exists', () => {
-        deleteHandler(makeArgv({ key: 'mykey' }));
+    it('writes and logs when the key exists', async () => {
+        await deleteHandler(makeArgv({ key: 'mykey' }));
         expect(mockVaultInstance.write).toHaveBeenCalled();
         expect(mockLog).toHaveBeenCalledWith('Deleted: mykey');
     });
 
-    it('logs an error and exits with 1 when key is not found', () => {
+    it('logs an error and exits with 1 when key is not found', async () => {
         mockVaultInstance.delete.mockReturnValueOnce(false);
-        expect(() => deleteHandler(makeArgv({ key: 'missing' }))).toThrow('process.exit');
+        await expect(deleteHandler(makeArgv({ key: 'missing' }))).rejects.toThrow('process.exit');
         expect(mockError).toHaveBeenCalledWith('Key not found: missing');
         expect(exitSpy).toHaveBeenCalledWith(1);
     });
 
-    it('does not write when key is not found', () => {
+    it('does not write when key is not found', async () => {
         mockVaultInstance.delete.mockReturnValueOnce(false);
-        try { deleteHandler(makeArgv({ key: 'missing' })); } catch { /* exit */ }
+        try { await deleteHandler(makeArgv({ key: 'missing' })); } catch { /* exit */ }
         expect(mockVaultInstance.write).not.toHaveBeenCalled();
     });
 });
@@ -187,25 +226,25 @@ describe('replaceHandler', () => {
         MockVault.openForWriting.mockClear();
     });
 
-    it('opens the vault for writing with the resolved config', () => {
-        replaceHandler(makeArgv({ key: 'k', value: 'v' }));
+    it('opens the vault for writing with the resolved config', async () => {
+        await replaceHandler(makeArgv({ key: 'k', value: 'v' }));
         expect(MockVault.openForWriting).toHaveBeenCalledWith(
             expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
-    it('calls replace with key and value', () => {
-        replaceHandler(makeArgv({ key: 'k', value: 'v' }));
+    it('calls replace with key and value', async () => {
+        await replaceHandler(makeArgv({ key: 'k', value: 'v' }));
         expect(mockVaultInstance.replace).toHaveBeenCalledWith('k', 'v');
     });
 
-    it('calls write after replacing', () => {
-        replaceHandler(makeArgv({ key: 'k', value: 'v' }));
+    it('calls write after replacing', async () => {
+        await replaceHandler(makeArgv({ key: 'k', value: 'v' }));
         expect(mockVaultInstance.write).toHaveBeenCalled();
     });
 
-    it('logs the replaced key', () => {
-        replaceHandler(makeArgv({ key: 'k', value: 'v' }));
+    it('logs the replaced key', async () => {
+        await replaceHandler(makeArgv({ key: 'k', value: 'v' }));
         expect(mockLog).toHaveBeenCalledWith('Replaced: k');
     });
 });
@@ -223,26 +262,26 @@ describe('getHandler', () => {
         exitSpy.mockRestore();
     });
 
-    it('opens the vault for reading with the resolved config', () => {
-        getHandler(makeArgv({ key: 'mykey' }));
+    it('opens the vault for reading with the resolved config', async () => {
+        await getHandler(makeArgv({ key: 'mykey' }));
         expect(MockVault.openForReading).toHaveBeenCalledWith(
             expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
-    it('calls get with the given key', () => {
-        getHandler(makeArgv({ key: 'mykey' }));
+    it('calls get with the given key', async () => {
+        await getHandler(makeArgv({ key: 'mykey' }));
         expect(mockVaultInstance.get).toHaveBeenCalledWith('mykey');
     });
 
-    it('logs the secret value when the key exists', () => {
-        getHandler(makeArgv({ key: 'mykey' }));
+    it('logs the secret value when the key exists', async () => {
+        await getHandler(makeArgv({ key: 'mykey' }));
         expect(mockLog).toHaveBeenCalledWith('the-value');
     });
 
-    it('logs an error and exits with 1 when key is not found', () => {
+    it('logs an error and exits with 1 when key is not found', async () => {
         mockVaultInstance.get.mockReturnValueOnce(undefined);
-        expect(() => getHandler(makeArgv({ key: 'missing' }))).toThrow('process.exit');
+        await expect(getHandler(makeArgv({ key: 'missing' }))).rejects.toThrow('process.exit');
         expect(mockError).toHaveBeenCalledWith('Key not found: missing');
         expect(exitSpy).toHaveBeenCalledWith(1);
     });
@@ -253,15 +292,15 @@ describe('listHandler', () => {
         MockVault.openForWriting.mockClear();
     });
 
-    it('opens the vault for writing with the resolved config', () => {
-        listHandler(makeArgv());
+    it('opens the vault for writing with the resolved config', async () => {
+        await listHandler(makeArgv());
         expect(MockVault.openForWriting).toHaveBeenCalledWith(
             expect.objectContaining({ filename: '/test/.vltx' }),
         );
     });
 
-    it('calls listKeys with the vault instance', () => {
-        listHandler(makeArgv());
+    it('calls listKeys with the vault instance', async () => {
+        await listHandler(makeArgv());
         expect(mockListKeys).toHaveBeenCalledWith(mockVaultInstance);
     });
 });
