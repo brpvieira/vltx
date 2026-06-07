@@ -466,8 +466,9 @@ v.unlock({ privateKeyFilename: '/run/secrets/vault.rsa' });
 
 #### Direct instantiation (advanced)
 
-`new Vltx(opts)` is equivalent to `Vltx.open()` but skips the
-file-existence check. **Using a factory method is the recommended approach.**
+`new Vltx(opts)` behaves like `Vltx.open()` but performs no validation:
+a missing or unreadable vault file is silently ignored rather than thrown.
+**Using a factory method is the recommended approach.**
 
 ```js
 import { Vltx } from 'vltx';

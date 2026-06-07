@@ -10,7 +10,7 @@
  * helpers ({@link Vltx#lock}, {@link Vltx#unlock}).
  * @module
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { KeyObject } from 'node:crypto';
 import { parsePrivateKey, parsePublicKey, derivePublicKey,
     DEFAULT_PUBLIC_ENCODING, generateRSAKeyPair,
@@ -89,6 +89,10 @@ export default class Vltx implements Map<string, string> {
 
     #filename?: string;
     get filename(): string { return  this.#filename as string; }
+
+    #loaded: boolean = false;
+    /** `true` after the vault file has been successfully read and parsed. */
+    get loaded() { return this.#loaded; }
 
     #publicKey?: KeyObject;
     #privateKey?: KeyObject | undefined;
@@ -214,7 +218,8 @@ export default class Vltx implements Map<string, string> {
 
     /**
      * Reads and parses a vault JSON file, replacing the current
-     * public key and secrets.
+     * public key and secrets. Sets {@link loaded} to `true` on
+     * success; resets it to `false` at the start of each call.
      * @param filename - Path to the vault file. Falls back to the
      *   filename supplied at construction.
      * @returns `this` for chaining.
@@ -229,6 +234,7 @@ export default class Vltx implements Map<string, string> {
         if (!filename) {
             throw new Error('No filename available');
         }
+        this.#loaded = false;
         const raw = readFileSync(filename, 'utf8');
         const { publicKey, secrets } = JSON.parse(raw);
 
@@ -240,7 +246,9 @@ export default class Vltx implements Map<string, string> {
         }
 
         this.setPublicKey(parsePublicKey(publicKey));
-        return this.load(secrets);
+        this.load(secrets);
+        this.#loaded = true;
+        return this;
     }
 
     /**
@@ -583,10 +591,18 @@ export default class Vltx implements Map<string, string> {
         }
 
         const { privateKeyFilename, passphrase } = privateKeyOpts;
-        if (privateKeyFilename && !existsSync(privateKeyFilename)) {
-            const { privateKey } = generateRSAKeyPair(passphrase);
-            writeFileSync(privateKeyFilename, privateKey as string,
-                { mode: 0o600 });
+        if (privateKeyFilename) {
+            try {
+                statSync(privateKeyFilename);
+            } catch (err: unknown) {
+                if (isNodeError(err) && err.code === 'ENOENT') {
+                    const { privateKey } = generateRSAKeyPair(passphrase);
+                    writeFileSync(privateKeyFilename, privateKey as string,
+                        { mode: 0o600 });
+                } else {
+                    throw err;
+                }
+            }
         }
 
         const v = new Vltx({ ...privateKeyOpts, filename });
@@ -607,12 +623,12 @@ export default class Vltx implements Map<string, string> {
      */
     static open(opts: VltxConfig): Vltx {
         const { filename } = opts;
-
-        if (filename && !existsSync(filename)) {
+        const v = new Vltx(opts);
+        if (filename && !v.loaded) {
             throw new Error(`Unable to open safe. ${filename} does not exist`);
         }
 
-        return new Vltx(opts);
+        return v;
     }
 
     /**
@@ -628,6 +644,8 @@ export default class Vltx implements Map<string, string> {
      *   `canDecrypt` false.
      * @throws {Error} If `opts.filename` is not provided.
      * @throws {Error} If `opts.filename` does not exist.
+     * @throws {Error} If the vault file is loaded but contains no
+     *   valid public key.
      */
     static openForWriting(opts: VltxConfig): Vltx {
         const { filename } = opts;
@@ -636,11 +654,15 @@ export default class Vltx implements Map<string, string> {
             throw new Error('A filename is required to open the vault');
         }
 
-        if (!existsSync(filename)) {
-            throw new Error(`Unable to open safe. ${filename} does not exist`);
+        const v =new Vltx({ filename });
+        if (!v.canEncrypt) {
+            if (!v.loaded) {
+                throw new Error(`Unable to open vault. ${filename} does not exist`);
+            }
+            throw new Error('Vault or public key may be corrupt');
         }
 
-        return new Vltx({ filename });
+        return v;
     }
 
     /**
@@ -655,8 +677,8 @@ export default class Vltx implements Map<string, string> {
      *   required.
      * @returns A {@link Vltx} with `canDecrypt` true.
      * @throws {Error} If `opts.filename` is not provided.
-     * @throws {Error} If `opts.filename` does not exist.
      * @throws {Error} If no private key is provided.
+     * @throws {Error} If `opts.filename` does not exist.
      * @throws {Error} If the private key cannot decrypt the vault.
      */
     static openForReading(opts: VltxConfig): Vltx {
@@ -666,15 +688,15 @@ export default class Vltx implements Map<string, string> {
             throw new Error('A filename is required to open the vault');
         }
 
-        if (!existsSync(filename)) {
-            throw new Error(`Unable to open safe. ${filename} does not exist`);
-        }
-
         if (!privateKeyFilename && !privateKey) {
             throw new Error('A private key is required to open the vault');
         }
 
         const v = new Vltx(opts);
+        if (!v.loaded) {
+            throw new Error(`Unable to open safe. ${filename} does not exist`);
+        }
+
         if (!v.canDecrypt) {
             throw new Error('Unable to open safe, check private key and passphrase');
         }
