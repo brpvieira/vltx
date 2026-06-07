@@ -457,6 +457,13 @@ describe('Vltx.init', () => {
         );
     });
 
+    it('forwards log events to a provided logger', () => {
+        const vaultPath = join(tmpDir, 'init-logger.vault.json');
+        const logger = { info: vi.fn(), warn: vi.fn(), debug: vi.fn() };
+        Vltx.init(vaultPath, { privateKey: privateKeyPem }, logger);
+        expect(logger.info).toHaveBeenCalled();
+    });
+
     it('returned vault can immediately write secrets', () => {
         const vaultPath = join(tmpDir, 'init-write.vault.json');
         const v = Vltx.init(vaultPath, { privateKey: privateKeyPem });

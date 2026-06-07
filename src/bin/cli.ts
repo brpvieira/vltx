@@ -55,6 +55,12 @@ function addValue(y: Argv): Argv {
 const cli = yargs(hideBin(process.argv))
     .scriptName('vltx')
     .usage('$0 <command> [options]')
+    .option('verbose', {
+        alias: 'v',
+        type: 'number',
+        description: 'Set output verbosity: debug = 3, info = 2, warn = 1, silent = 0',
+        default: 1
+    })
 
     // -- init ----------------------------------------------------─
     .command(

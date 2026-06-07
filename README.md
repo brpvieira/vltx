@@ -127,6 +127,28 @@ npx vltx delete SMTP_PASSWORD
 
 ---
 
+### Verbosity
+
+All commands accept a `--verbose` / `-v` flag that controls how much the library
+logs during an operation:
+
+| Flag       | Level  | What you see                                     |
+|------------|--------|--------------------------------------------------|
+| _(default)_| `warn` | Warnings and errors only                         |
+| `-v 2`     | `info` | File reads, key loads, secret counts, and above  |
+| `-v 3`     | `debug`| Every internal step (key derivation, clears, …)  |
+| `-v 0`     | `silent`| Errors only — suppress all non-error output     |
+
+```sh
+# see every step during init
+npx vltx init -v 3
+
+# suppress library chatter; only errors are shown
+npx vltx get DB_URL -v 0 --key-file ~/.keys/prod.rsa
+```
+
+---
+
 ### Environment variables
 
 Set these to avoid repeating paths on every command:
