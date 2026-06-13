@@ -77,5 +77,16 @@ export default defineConfig([
             quotes: ['error', 'single', { avoidEscape: true }],
             strict: 'off'
         }
+    },
+    {
+        files: ['**/*.{ts,mts,cts}'],
+        rules: {
+            'no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': ['error', {
+                argsIgnorePattern: '^_',
+                varsIgnorePattern: '^_',
+                caughtErrorsIgnorePattern: '^_'
+            }]
+        }
     }
 ]);
