@@ -12,7 +12,7 @@ let tmpDir: string;
 beforeAll(() => {
     const kp = generateRSAKeyPair();
     privateKeyPem = kp.privateKey as string;
-    publicKeyB64Der = kp.publicKey;
+    publicKeyB64Der = kp.publicKey as string;
     tmpDir = mkdtempSync(join(__dirname, '../tmp' , 'test-'));
 });
 
