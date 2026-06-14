@@ -93,13 +93,15 @@ npx vltx list
 ```
 
 ```
-.vltx (3 secrets)
-  API_KEY
-  DB_URL
-  SMTP_PASSWORD
+.vltx  (3 secrets)
+KEY            TYPE    CREATED              MODIFIED
+─────────────────────────────────────────────────────────────────
+API_KEY        Secret  2025-06-14 10:30:00  2025-06-14 10:30:00
+DB_URL         Secret  2025-06-14 10:31:00  2025-06-14 10:31:00
+SMTP_PASSWORD  Secret  2025-06-14 10:32:00  2025-06-14 10:32:00
 ```
 
-Key names are always shown. Values are never printed by `list`.
+Values are never decrypted by `list`. Dates are UTC.
 
 ---
 
@@ -206,9 +208,11 @@ const secret = setup({ filename: 'secrets/production.vault' }).tagFunction;
 
 ---
 
-### Using `get()` directly
+### Reading secrets directly
 
-For explicit key lookups without a template literal, call `vault.get()`:
+`vault.get(key)` returns the raw `AnyEntry` object (or `undefined` if the key
+is absent). To obtain the plaintext value call `vault.decrypt(key)`, which
+returns a `Buffer` (or `undefined` if the key is absent):
 
 **ESM**
 ```js
@@ -216,8 +220,8 @@ import { setup } from 'vltx';
 
 const vault = setup();
 
-const dbUrl  = vault.get('DB_URL');
-const apiKey = vault.get('API_KEY');
+const dbUrl  = vault.decrypt('DB_URL')?.toString('utf8');
+const apiKey = vault.decrypt('API_KEY')?.toString('utf8');
 ```
 
 **CommonJS**
@@ -226,8 +230,8 @@ const { setup } = require('vltx');
 
 const vault = setup();
 
-const dbUrl  = vault.get('DB_URL');
-const apiKey = vault.get('API_KEY');
+const dbUrl  = vault.decrypt('DB_URL')?.toString('utf8');
+const apiKey = vault.decrypt('API_KEY')?.toString('utf8');
 ```
 
 ---
@@ -296,30 +300,31 @@ one validates its preconditions and makes the intent explicit. Full method
 signatures and types are documented in [API.md](API.md).
 
 > [!WARNING]
-> **Map iteration returns raw ciphertext, not plaintext.**
+> **Map iteration yields entry objects, not plaintext.**
 >
-> `Vltx` implements `Map<string, string>`, but iteration methods
+> `Vltx` implements `Map<string, AnyEntry>`. Iteration methods
 > (`entries()`, `values()`, `[Symbol.iterator]`, `forEach()`) always yield
-> the raw encrypted values stored on disk — no decryption occurs, even when a
-> private key is loaded. Only `get(key)` decrypts.
+> raw `AnyEntry` objects — no decryption occurs, even when a private key is
+> loaded. Use `decrypt(key)` to obtain the plaintext for a specific key.
 >
 > ```js
-> const v = Vltx.openForWriting({ filename: '.vault' });
+> const v = Vltx.openForReading({ filename: '.vault', privateKeyFilename: '.vault.rsa' });
 >
-> // These look correct but produce encrypted base64 blobs:
-> for (const [k, val] of v) { /* val is ciphertext */ }
-> Object.fromEntries(v);  // { DB_URL: 'a8Kx2...', API_KEY: 'mN7pQ...' }
-> [...v.values()]         // ['a8Kx2...', 'mN7pQ...']
+> // Iteration yields AnyEntry objects (not plaintext):
+> for (const [k, entry] of v) { /* entry is AnyEntry, not a string */ }
+> [...v.values()]  // [SecretEntry { ... }, SecretEntry { ... }]
 >
-> // Use get() to decrypt individual values:
-> const dbUrl = v.get('DB_URL');  // plaintext (when canDecrypt is true)
+> // Use decrypt() to get the plaintext Buffer for a key:
+> const dbUrl = v.decrypt('DB_URL')?.toString('utf8');
 > ```
 >
-> To export all secrets as plaintext, iterate the keys and call `get()` for
+> To export all secrets as plaintext, iterate the keys and call `decrypt()` for
 > each one:
 >
 > ```js
-> const plain = Object.fromEntries([...v.keys()].map(k => [k, v.get(k)]));
+> const plain = Object.fromEntries(
+>     [...v.keys()].map(k => [k, v.decrypt(k)?.toString('utf8')])
+> );
 > ```
 
 ---
@@ -340,7 +345,7 @@ const v = Vltx.openForReading({
     passphrase: process.env.VLTX_PASSPHRASE, // optional
 });
 
-const dbUrl = v.get('DB_URL');
+const dbUrl = v.decrypt('DB_URL')?.toString('utf8');
 ```
 
 **CommonJS**
@@ -353,7 +358,7 @@ const v = Vltx.openForReading({
     passphrase: process.env.VLTX_PASSPHRASE,
 });
 
-const dbUrl = v.get('DB_URL');
+const dbUrl = v.decrypt('DB_URL')?.toString('utf8');
 ```
 
 ---
@@ -438,7 +443,7 @@ const v = Vltx.openForReading({
     privateKeyFilename: '/run/secrets/vault.rsa',
 });
 
-const dbUrl = v.get('DB_URL'); // decrypt while key is loaded
+const dbUrl = v.decrypt('DB_URL')?.toString('utf8'); // decrypt while key is loaded
 
 v.lock(); // discard the private key
 // v.canDecrypt === false — safe to pass around read-only
@@ -457,7 +462,7 @@ const v = Vltx.openForReading({
     privateKeyFilename: '/run/secrets/vault.rsa',
 });
 
-v.get('DB_URL');
+v.decrypt('DB_URL');
 v.lock();
 v.unlock({ privateKeyFilename: '/run/secrets/vault.rsa' });
 ```
@@ -485,8 +490,8 @@ const v = new Vltx({
 
 - Encryption uses **RSA-OAEP-SHA-256** (Node.js native `crypto` — no third-party crypto libraries).
 - Keys are **4096-bit**. Private keys can be protected with **AES-256-CBC** via a passphrase.
-- Each value is salted with random bytes and a timestamp before encryption, so the same plaintext always produces a different ciphertext.
-- Secret values are limited to **190 UTF-8 bytes** — a constraint of RSA block encryption (the stuffed form must fit the 446-byte OAEP payload). Use a reference (e.g. a filename or URL) for larger payloads.
+- Each value is prepended with a 16-byte random salt before encryption, so the same plaintext always produces a different ciphertext.
+- Secret values are limited to **190 UTF-8 bytes** — a constraint of RSA block encryption. Use a reference (e.g. a filename or URL) for larger payloads.
 - The vault file contains only the public key and ciphertext — it is safe to commit, distribute, or embed in container images.
 - The private key is **never** written into the vault file. Guard it as you would a production password.
 - The `--passphrase` flag **never accepts a value on the command line**. It either prompts interactively (TTY) or reads from stdin (pipe), so the passphrase is never exposed in shell history or `/proc/<pid>/cmdline`. Use `VLTX_PASSPHRASE` for non-interactive environments.
