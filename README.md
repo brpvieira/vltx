@@ -82,7 +82,7 @@ npx vltx add SMTP_PASSWORD "hunter2"
 npx vltx replace API_KEY "sk-live-newkey456"
 ```
 
-Each secret value is limited to **190 UTF-8 bytes**. Values longer than this will be rejected at write time.
+Each secret value is limited to **430 UTF-8 bytes**. Values longer than this will be rejected at write time.
 
 ---
 
@@ -371,7 +371,7 @@ No decryption capability is available. Useful in environments that only need
 to write secrets (e.g., a CI pipeline that rotates credentials).
 
 `set` throws if the key already exists — use `replace` to overwrite. Both
-methods throw if the value exceeds **190 UTF-8 bytes** (`MAX_SECRET_BYTES`).
+methods throw if the value exceeds **430 UTF-8 bytes** (`MAX_SECRET_BYTES`).
 
 **ESM**
 ```js
@@ -491,7 +491,7 @@ const v = new Vltx({
 - Encryption uses **RSA-OAEP-SHA-256** (Node.js native `crypto` — no third-party crypto libraries).
 - Keys are **4096-bit**. Private keys can be protected with **AES-256-CBC** via a passphrase.
 - Each value is prepended with a 16-byte random salt before encryption, so the same plaintext always produces a different ciphertext.
-- Secret values are limited to **190 UTF-8 bytes** — a constraint of RSA block encryption. Use a reference (e.g. a filename or URL) for larger payloads.
+- Secret values are limited to **430 UTF-8 bytes** — the RSA-OAEP-SHA-256 plaintext cap (512-byte modulus − 66-byte OAEP overhead) minus the 16-byte random salt. Use a reference (e.g. a filename or URL) for larger payloads.
 - The vault file contains only the public key and ciphertext — it is safe to commit, distribute, or embed in container images.
 - The private key is **never** written into the vault file. Guard it as you would a production password.
 - The `--passphrase` flag **never accepts a value on the command line**. It either prompts interactively (TTY) or reads from stdin (pipe), so the passphrase is never exposed in shell history or `/proc/<pid>/cmdline`. Use `VLTX_PASSPHRASE` for non-interactive environments.

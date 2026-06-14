@@ -30,7 +30,7 @@ export type PrivateKeyConfig = {
     passphrase?: string | undefined,
 };
 
-export const MAX_SECRET_BYTES = 190 as const;
+export const MAX_SECRET_BYTES = 430 as const;
 
 /**
  * Configuration options for constructing a {@link Vltx}.
