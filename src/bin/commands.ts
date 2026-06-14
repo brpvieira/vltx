@@ -136,12 +136,12 @@ export async function getHandler(argv: ArgumentsCamelCase): Promise<void> {
     const cfg = await resolveConfig(argv);
     const v = Vltx.openForReading(cfg);
     const { key } = argv as CommandLineArguments;
-    const value = v.get(key!);
+    const value = v.decrypt(key!);
     if (value === undefined) {
         error(`Key not found: ${key as string}`);
         process.exit(1);
     }
-    log(value);
+    log(Buffer.isBuffer(value) ? value.toString('utf8') : value);
 }
 
 /**
