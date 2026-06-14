@@ -7,12 +7,11 @@
  * @module
  */
 import { generateKeyPairSync, createPublicKey,
-    createPrivateKey, constants,
+    createPrivateKey,
     randomBytes, sign, verify } from 'node:crypto';
-import { privateDecrypt, type KeyPairExportResult, type RSAKeyPairOptions,
+import { type KeyPairExportResult, type RSAKeyPairOptions,
     type PrivateKeyExportOptions, type PublicKeyExportOptions,
-    type KeyObject, type PrivateKeyInput, type PublicKeyInput,
-    publicEncrypt } from 'node:crypto';
+    type KeyObject, type PrivateKeyInput, type PublicKeyInput } from 'node:crypto';
 
 /** Default private key export options: PKCS#8, PEM, no encryption. */
 export const DEFAULT_PRIVATE_ENCODING: PrivateKeyExportOptions<'pkcs8'> = {
@@ -93,36 +92,6 @@ type DerivePublicKeyInput = PublicKeyInput | string | Buffer | KeyObject;
 export function derivePublicKey(input: DerivePublicKeyInput): KeyObject {
     return createPublicKey(input);
 }
-
-/**
- * Encrypts a plaintext string using RSA-OAEP-SHA-256.
- * @param key - A public `KeyObject` used to encrypt.
- * @param data - Plaintext string to encrypt.
- * @returns A `Buffer` containing the RSA ciphertext.
- */
-export function encrypt(key: KeyObject, data: string) {
-    return publicEncrypt({
-        key,
-        padding: constants.RSA_PKCS1_OAEP_PADDING,
-        oaepHash: 'sha256'
-    }, data);
-}
-
-/**
- * Decrypts RSA ciphertext produced by {@link encrypt} using RSA-OAEP-SHA-256.
- * @param key - A private `KeyObject` used to decrypt.
- * @param data - Ciphertext buffer or string to decrypt.
- * @returns A `Buffer` containing the recovered plaintext.
- */
-export function decrypt(key: KeyObject,
-    data: NodeJS.ArrayBufferView | string): NonSharedBuffer {
-    return privateDecrypt({
-        key,
-        padding: constants.RSA_PKCS1_OAEP_PADDING,
-        oaepHash: 'sha256'
-    }, data);
-}
-
 
 /**
  * Verifies that a private key and public key form a matching pair by signing
