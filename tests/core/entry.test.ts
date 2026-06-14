@@ -1,6 +1,7 @@
 import { assert, describe, it } from 'vitest';
 import { randomBytes } from 'node:crypto';
-import { getRawEntry, rawEntryToString, EntryType, SecretEntry, LargeEntry, parseEntry } from '../../src/core/entry.js';
+import { getRawEntry, rawEntryToString, EntryType, SecretEntry, LargeEntry, parseEntry,
+    rsaEncrypt, rsaDecrypt, aesEncrypt, aesDecrypt, wrapAESPayload, unwrapAESPayload } from '../../src/core/entry.js';
 import { generateRSAKeyPair, parsePublicKey, parsePrivateKey } from '../../src/core/rsa.js';
 
 describe('getRawEntry / rawEntryToString', () => {
@@ -287,6 +288,220 @@ describe('getRawEntry / rawEntryToString', () => {
             const buf = Buffer.alloc(17);
             buf[0] = 0x58; // 'X' — not a registered prefix
             assert.throws(() => parseEntry(buf.toString('base64')), /Unknown entry type/);
+        });
+    });
+});
+
+describe('rsaEncrypt', () => {
+    const { privateKey: privPem, publicKey: pubPem } = generateRSAKeyPair();
+    const pubKey = parsePublicKey(pubPem);
+    const privKey = parsePrivateKey(privPem);
+
+    it('returns a Buffer', () => {
+        assert.ok(Buffer.isBuffer(rsaEncrypt(pubKey, 'hello')));
+    });
+
+    it('produces different ciphertext on each call for the same string input', () => {
+        const r1 = rsaEncrypt(pubKey, 'same');
+        const r2 = rsaEncrypt(pubKey, 'same');
+        assert.notDeepEqual(r1, r2);
+    });
+
+    it('decrypts back to the original string via rsaDecrypt', () => {
+        const plaintext = 'vault-secret';
+        const result = rsaDecrypt(rsaEncrypt(pubKey, plaintext), privKey);
+        assert.strictEqual(result.toString('utf8'), plaintext);
+    });
+
+    it('accepts a Buffer as data and decrypts correctly', () => {
+        const data = randomBytes(32);
+        const result = rsaDecrypt(rsaEncrypt(pubKey, data), privKey);
+        assert.deepStrictEqual(result, data);
+    });
+});
+
+describe('aesEncrypt', () => {
+    const { publicKey: pubPem } = generateRSAKeyPair();
+    const pubKey = parsePublicKey(pubPem);
+
+    it('returns an AESEnvelope with Buffer fields', () => {
+        const env = aesEncrypt(pubKey, 'hello');
+        assert.ok(Buffer.isBuffer(env.rsaEncryptedKey));
+        assert.ok(Buffer.isBuffer(env.iv));
+        assert.ok(Buffer.isBuffer(env.authTag));
+        assert.ok(Buffer.isBuffer(env.chipher));
+    });
+
+    it('rsaEncryptedKey is 512 bytes', () => {
+        assert.strictEqual(aesEncrypt(pubKey, 'test').rsaEncryptedKey.byteLength, 512);
+    });
+
+    it('iv is 12 bytes', () => {
+        assert.strictEqual(aesEncrypt(pubKey, 'test').iv.byteLength, 12);
+    });
+
+    it('authTag is 16 bytes', () => {
+        assert.strictEqual(aesEncrypt(pubKey, 'test').authTag.byteLength, 16);
+    });
+
+    it('produces a non-empty ciphertext', () => {
+        assert.ok(aesEncrypt(pubKey, 'hello').chipher.byteLength > 0);
+    });
+
+    it('produces different envelopes on each call for the same input', () => {
+        const e1 = aesEncrypt(pubKey, 'same');
+        const e2 = aesEncrypt(pubKey, 'same');
+        assert.notDeepEqual(e1.chipher, e2.chipher);
+    });
+});
+
+describe('aesDecrypt', () => {
+    const { privateKey: privPem, publicKey: pubPem } = generateRSAKeyPair();
+    const pubKey = parsePublicKey(pubPem);
+    const privKey = parsePrivateKey(privPem);
+
+    function encryptAndUnwrapKey(payload: string) {
+        const env = aesEncrypt(pubKey, payload);
+        const aesKey = rsaDecrypt(env.rsaEncryptedKey, privKey);
+        return { env, aesKey };
+    }
+
+    it('returns a Buffer when encoding is not provided', () => {
+        const { env, aesKey } = encryptAndUnwrapKey('hello');
+        assert.ok(Buffer.isBuffer(aesDecrypt(aesKey, env)));
+    });
+
+    it('returns a string when encoding is provided', () => {
+        const { env, aesKey } = encryptAndUnwrapKey('hello');
+        assert.strictEqual(typeof aesDecrypt(aesKey, env, 'utf8'), 'string');
+    });
+
+    it('recovers the original plaintext as a Buffer', () => {
+        const { env, aesKey } = encryptAndUnwrapKey('my-secret');
+        const result = aesDecrypt(aesKey, env) as Buffer;
+        assert.strictEqual(result.toString('utf8'), 'my-secret');
+    });
+
+    it('recovers the original plaintext as a utf8 string', () => {
+        const { env, aesKey } = encryptAndUnwrapKey('my-secret');
+        assert.strictEqual(aesDecrypt(aesKey, env, 'utf8'), 'my-secret');
+    });
+
+    it('throws when the authTag is tampered with', () => {
+        const { env, aesKey } = encryptAndUnwrapKey('tamper-test');
+        const badEnv = { ...env, authTag: randomBytes(16) };
+        assert.throws(() => aesDecrypt(aesKey, badEnv));
+    });
+
+    it('throws when the wrong AES key is used', () => {
+        const { env } = encryptAndUnwrapKey('key-mismatch');
+        assert.throws(() => aesDecrypt(randomBytes(32), env));
+    });
+});
+
+describe('rsaDecrypt', () => {
+    const { privateKey: privPem, publicKey: pubPem } = generateRSAKeyPair();
+    const pubKey = parsePublicKey(pubPem as string);
+    const privKey = parsePrivateKey(privPem as string);
+
+    it('returns the original plaintext as a Buffer', () => {
+        const entry = new SecretEntry();
+        entry.setRaw(pubKey, 'hello');
+        const result = rsaDecrypt(entry.getRaw(), privKey);
+        assert.ok(Buffer.isBuffer(result));
+        assert.strictEqual(result.toString('utf8'), 'hello');
+    });
+
+    it('strips the 16-byte salt, returning only the plaintext bytes', () => {
+        const plaintext = 'hello vault';
+        const entry = new SecretEntry();
+        entry.setRaw(pubKey, plaintext);
+        const result = rsaDecrypt(entry.getRaw(), privKey);
+        assert.strictEqual(result.byteLength, Buffer.byteLength(plaintext, 'utf8'));
+    });
+
+    it('decrypts binary-safe plaintext correctly', () => {
+        const plaintext = randomBytes(64).toString('hex');
+        const entry = new SecretEntry();
+        entry.setRaw(pubKey, plaintext);
+        const result = rsaDecrypt(entry.getRaw(), privKey);
+        assert.strictEqual(result.toString('utf8'), plaintext);
+    });
+
+    it('throws when decrypting with the wrong private key', () => {
+        const { privateKey: otherPrivPem } = generateRSAKeyPair();
+        const otherPrivKey = parsePrivateKey(otherPrivPem as string);
+        const entry = new SecretEntry();
+        entry.setRaw(pubKey, 'secret');
+        assert.throws(() => rsaDecrypt(entry.getRaw(), otherPrivKey));
+    });
+});
+
+describe('wrapAESPayload / unwrapAESPayload', () => {
+    function makeEnvelope() {
+        return {
+            rsaEncryptedKey: randomBytes(512),
+            iv: randomBytes(12),
+            authTag: randomBytes(16),
+            chipher: randomBytes(64)
+        };
+    }
+
+    describe('wrapAESPayload', () => {
+        it('returns a Buffer whose length equals the sum of all field lengths', () => {
+            const env = makeEnvelope();
+            const result = wrapAESPayload(env);
+            assert.strictEqual(result.byteLength, 512 + 12 + 16 + 64);
+        });
+
+        it('places rsaEncryptedKey in bytes 0–511', () => {
+            const env = makeEnvelope();
+            assert.deepStrictEqual(wrapAESPayload(env).subarray(0, 512), env.rsaEncryptedKey);
+        });
+
+        it('places iv in bytes 512–523', () => {
+            const env = makeEnvelope();
+            assert.deepStrictEqual(wrapAESPayload(env).subarray(512, 524), env.iv);
+        });
+
+        it('places authTag in bytes 524–539', () => {
+            const env = makeEnvelope();
+            assert.deepStrictEqual(wrapAESPayload(env).subarray(524, 540), env.authTag);
+        });
+
+        it('places ciphertext starting at byte 540', () => {
+            const env = makeEnvelope();
+            assert.deepStrictEqual(wrapAESPayload(env).subarray(540), env.chipher);
+        });
+    });
+
+    describe('unwrapAESPayload', () => {
+        it('recovers rsaEncryptedKey (512 bytes)', () => {
+            const env = makeEnvelope();
+            assert.deepStrictEqual(unwrapAESPayload(wrapAESPayload(env)).rsaEncryptedKey, env.rsaEncryptedKey);
+        });
+
+        it('recovers iv (12 bytes)', () => {
+            const env = makeEnvelope();
+            assert.deepStrictEqual(unwrapAESPayload(wrapAESPayload(env)).iv, env.iv);
+        });
+
+        it('recovers authTag (16 bytes)', () => {
+            const env = makeEnvelope();
+            assert.deepStrictEqual(unwrapAESPayload(wrapAESPayload(env)).authTag, env.authTag);
+        });
+
+        it('recovers ciphertext', () => {
+            const env = makeEnvelope();
+            assert.deepStrictEqual(unwrapAESPayload(wrapAESPayload(env)).chipher, env.chipher);
+        });
+    });
+
+    describe('round-trip', () => {
+        it('wrap then unwrap then rewrap produces the same bytes', () => {
+            const env = makeEnvelope();
+            const wrapped = wrapAESPayload(env);
+            assert.deepStrictEqual(wrapAESPayload(unwrapAESPayload(wrapped)), wrapped);
         });
     });
 });

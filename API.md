@@ -85,8 +85,19 @@ base64-encoded for storage in the vault JSON file.
     * [.BaseEntry](#module_core/entry.BaseEntry)
     * [.SecretEntry](#module_core/entry.SecretEntry)
     * [.LargeEntry](#module_core/entry.LargeEntry)
+        * _instance_
+            * [.setRaw(publicKey, data)](#module_core/entry.LargeEntry+setRaw)
+            * [.decrypt(privateKey, encoding)](#module_core/entry.LargeEntry+decrypt) ⇒
+        * _static_
+            * [.parse(base64Str)](#module_core/entry.LargeEntry.parse) ⇒
     * [.getRawEntry(str)](#module_core/entry.getRawEntry) ⇒
     * [.rawEntryToString(rawEntry)](#module_core/entry.rawEntryToString) ⇒
+    * [.rsaEncrypt(publicKey, data)](#module_core/entry.rsaEncrypt) ⇒
+    * [.rsaDecrypt(raw, privateKey)](#module_core/entry.rsaDecrypt) ⇒
+    * [.wrapAESPayload(payload)](#module_core/entry.wrapAESPayload) ⇒
+    * [.aesEncrypt(publicKey, payload)](#module_core/entry.aesEncrypt) ⇒
+    * [.aesDecrypt(aesKey, payload, encoding)](#module_core/entry.aesDecrypt) ⇒
+    * [.unwrapAESPayload(buf)](#module_core/entry.unwrapAESPayload) ⇒
     * [.parseEntry(base64Str)](#module_core/entry.parseEntry) ⇒
 
 <a name="module_core/entry.BaseEntry"></a>
@@ -111,7 +122,67 @@ A vault entry for short secrets (≤ [MAX_SECRET_BYTES](MAX_SECRET_BYTES) UTF-8 
 ### core/entry.LargeEntry
 A vault entry for larger payloads, identified by the `@` prefix.
 
+Uses hybrid encryption: the plaintext is AES-256-GCM encrypted with
+a fresh random key, and that key is RSA-OAEP-SHA-256 wrapped. The
+serialized payload follows the [AESEnvelope](AESEnvelope) wire layout
+produced by [wrapAESPayload](wrapAESPayload).
+
 **Kind**: static class of [<code>core/entry</code>](#module_core/entry)  
+
+* [.LargeEntry](#module_core/entry.LargeEntry)
+    * _instance_
+        * [.setRaw(publicKey, data)](#module_core/entry.LargeEntry+setRaw)
+        * [.decrypt(privateKey, encoding)](#module_core/entry.LargeEntry+decrypt) ⇒
+    * _static_
+        * [.parse(base64Str)](#module_core/entry.LargeEntry.parse) ⇒
+
+<a name="module_core/entry.LargeEntry+setRaw"></a>
+
+#### largeEntry.setRaw(publicKey, data)
+Encrypts `data` with AES-256-GCM using a fresh random key, then
+RSA-OAEP-SHA-256 wraps that key and stores the serialized
+[AESEnvelope](AESEnvelope) as the raw payload.
+
+**Kind**: instance method of [<code>LargeEntry</code>](#module_core/entry.LargeEntry)  
+
+| Param | Description |
+| --- | --- |
+| publicKey | RSA public key used to wrap the AES key. |
+| data | UTF-8 plaintext to encrypt. |
+
+<a name="module_core/entry.LargeEntry+decrypt"></a>
+
+#### largeEntry.decrypt(privateKey, encoding) ⇒
+Unwraps the RSA-encrypted AES key with `privateKey`, then
+decrypts the AES-256-GCM ciphertext. Throws if the GCM
+authentication tag does not match.
+
+**Kind**: instance method of [<code>LargeEntry</code>](#module_core/entry.LargeEntry)  
+**Returns**: Plaintext as a `Buffer`, or as a string when `encoding`
+  is given.  
+**Throws**:
+
+- <code>Error</code> If the GCM auth tag fails or `privateKey` does
+  not match.
+
+
+| Param | Description |
+| --- | --- |
+| privateKey | RSA private key matching the one used in   [LargeEntry#setRaw](LargeEntry#setRaw). |
+| encoding | Optional encoding; returns a string when set,   Buffer otherwise. |
+
+<a name="module_core/entry.LargeEntry.parse"></a>
+
+#### LargeEntry.parse(base64Str) ⇒
+Parses a base64-encoded vault entry into a [LargeEntry](LargeEntry).
+
+**Kind**: static method of [<code>LargeEntry</code>](#module_core/entry.LargeEntry)  
+**Returns**: A new [LargeEntry](LargeEntry) with the parsed payload.  
+
+| Param | Description |
+| --- | --- |
+| base64Str | A serialized entry from   [BaseEntry#serialize](BaseEntry#serialize). |
+
 <a name="module_core/entry.getRawEntry"></a>
 
 ### core/entry.getRawEntry(str) ⇒
@@ -136,6 +207,92 @@ Wire format: `[1-byte prefix][8-byte createdOn ms BE][8-byte modifiedOn ms BE][p
 | Param | Description |
 | --- | --- |
 | rawEntry | The raw entry to serialize. |
+
+<a name="module_core/entry.rsaEncrypt"></a>
+
+### core/entry.rsaEncrypt(publicKey, data) ⇒
+Encrypts `data` with RSA-OAEP-SHA-256, prepending a 16-byte random salt so
+that identical plaintexts produce distinct ciphertexts.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: The RSA ciphertext as a Buffer.  
+
+| Param | Description |
+| --- | --- |
+| publicKey | The RSA public key to encrypt with. |
+| data | The plaintext to encrypt, as a Buffer or UTF-8 string. |
+
+<a name="module_core/entry.rsaDecrypt"></a>
+
+### core/entry.rsaDecrypt(raw, privateKey) ⇒
+Decrypts an RSA-OAEP-SHA-256 ciphertext and strips the 16-byte random salt
+prepended by [BaseEntry#setRaw](BaseEntry#setRaw).
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: The original plaintext as a Buffer, with the leading salt removed.  
+
+| Param | Description |
+| --- | --- |
+| raw | The RSA ciphertext buffer. |
+| privateKey | The RSA private key matching the public key used to encrypt. |
+
+<a name="module_core/entry.wrapAESPayload"></a>
+
+### core/entry.wrapAESPayload(payload) ⇒
+Serializes an [AESEnvelope](AESEnvelope) into a single contiguous Buffer.
+
+Wire layout: `[512-byte rsaEncryptedKey][12-byte iv][16-byte authTag][ciphertext]`.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: A Buffer containing all envelope fields concatenated in declaration order.  
+
+| Param | Description |
+| --- | --- |
+| payload | The AES envelope to serialize. |
+
+<a name="module_core/entry.aesEncrypt"></a>
+
+### core/entry.aesEncrypt(publicKey, payload) ⇒
+Encrypts `payload` with AES-256-GCM using a freshly generated random key and
+IV, then RSA-wraps the AES key via [rsaEncrypt](rsaEncrypt).
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: An [AESEnvelope](AESEnvelope) with the RSA-wrapped key, IV, authentication
+  tag, and ciphertext.  
+
+| Param | Description |
+| --- | --- |
+| publicKey | The RSA public key used to wrap the AES key. |
+| payload | The UTF-8 plaintext to encrypt. |
+
+<a name="module_core/entry.aesDecrypt"></a>
+
+### core/entry.aesDecrypt(aesKey, payload, encoding) ⇒
+Decrypts an AES-256-GCM ciphertext from an [AESEnvelope](AESEnvelope) using the
+supplied raw AES key. Throws if the authentication tag does not match.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: The plaintext as a `Buffer`, or as a string when `encoding` is given.  
+
+| Param | Description |
+| --- | --- |
+| aesKey | The 32-byte AES key (already RSA-decrypted). |
+| payload | The [AESEnvelope](AESEnvelope) containing the IV, authentication   tag, and ciphertext. |
+| encoding | Optional encoding; when provided the decrypted bytes are   returned as a string instead of a Buffer. |
+
+<a name="module_core/entry.unwrapAESPayload"></a>
+
+### core/entry.unwrapAESPayload(buf) ⇒
+Parses a contiguous Buffer back into an [AESEnvelope](AESEnvelope).
+
+Inverse of [wrapAESPayload](wrapAESPayload). Expects the wire layout produced by that function.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: The deserialized [AESEnvelope](AESEnvelope).  
+
+| Param | Description |
+| --- | --- |
+| buf | A Buffer produced by [wrapAESPayload](wrapAESPayload). |
 
 <a name="module_core/entry.parseEntry"></a>
 
