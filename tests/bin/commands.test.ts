@@ -280,6 +280,12 @@ describe('getHandler', () => {
         expect(mockLog).toHaveBeenCalledWith('the-value');
     });
 
+    it('logs a string value directly when decrypt returns a string', async () => {
+        mockVaultInstance.decrypt.mockReturnValueOnce('plain-string');
+        await getHandler(makeArgv({ key: 'mykey' }));
+        expect(mockLog).toHaveBeenCalledWith('plain-string');
+    });
+
     it('logs an error and exits with 1 when key is not found', async () => {
         mockVaultInstance.decrypt.mockReturnValueOnce(undefined);
         await expect(getHandler(makeArgv({ key: 'missing' }))).rejects.toThrow('process.exit');
