@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, statSync, writeFileSy
 import { join } from 'node:path';
 import Vltx, { MAX_SECRET_BYTES } from '../../src/core/vltx.js';
 import { generateRSAKeyPair, parsePrivateKey, derivePublicKey } from '../../src/core/rsa.js';
+import { SecretEntry } from '../../src/core/entry.js';
 
 let privateKeyPem: string;
 let publicKeyPem: string;
@@ -53,7 +54,9 @@ describe('Vltx constructor', () => {
 
     it('loads vault contents from a file when filename is provided', () => {
         const vaultPath = join(tmpDir, 'load.vault.json');
-        writeFileSync(vaultPath, JSON.stringify({ publicKey: publicKeyPem, secrets: { foo: 'bar' } }));
+        const vw = new Vltx({ privateKey: privateKeyPem });
+        vw.set('foo', 'bar-value');
+        vw.write(vaultPath);
         const v = new Vltx({ filename: vaultPath });
         assert(v.canEncrypt);
         assert(v.has('foo'));
@@ -127,7 +130,7 @@ describe('Vltx.keyPairMatches', () => {
     it('returns false when the private key does not match the public key', () => {
         const { privateKey: otherPrivPem } = generateRSAKeyPair();
         const v = new Vltx({ privateKey: privateKeyPem });
-        v.setPrivateKey({ privateKey: otherPrivPem });
+        v.setPrivateKey({ privateKey: otherPrivPem as string });
         assert(!v.keyPairMatches);
     });
 
@@ -138,9 +141,22 @@ describe('Vltx.keyPairMatches', () => {
 });
 
 describe('Vltx.load', () => {
+    let entryA: string;
+    let entryB: string;
+
+    beforeAll(() => {
+        const pubKey = derivePublicKey(publicKeyPem as string);
+        const a = new SecretEntry();
+        a.setRaw(pubKey, 'val-a');
+        entryA = a.serialize();
+        const b = new SecretEntry();
+        b.setRaw(pubKey, 'val-b');
+        entryB = b.serialize();
+    });
+
     it('populates secrets from a plain object', () => {
         const v = new Vltx({});
-        v.load({ a: '1', b: '2' });
+        v.load({ a: entryA, b: entryB });
         assert.equal(v.size, 2);
         assert(v.has('a'));
         assert(v.has('b'));
@@ -148,8 +164,8 @@ describe('Vltx.load', () => {
 
     it('replaces existing secrets on each call', () => {
         const v = new Vltx({});
-        v.load({ a: '1' });
-        v.load({ b: '2' });
+        v.load({ a: entryA });
+        v.load({ b: entryB });
         assert(!v.has('a'));
         assert(v.has('b'));
         assert.equal(v.size, 1);
@@ -157,7 +173,7 @@ describe('Vltx.load', () => {
 
     it('returns this for chaining', () => {
         const v = new Vltx({});
-        const result = v.load({ x: 'y' });
+        const result = v.load({ x: entryA });
         assert.strictEqual(result, v);
     });
 });
@@ -279,8 +295,9 @@ describe('Vltx.toJSON', () => {
     });
 
     it('includes all stored secrets', () => {
-        const v = new Vltx({});
-        v.load({ x: '1', y: '2' });
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.set('x', '1');
+        v.set('y', '2');
         const json = v.toJSON();
         assert.deepEqual(Object.keys(json.secrets).sort(), ['x', 'y']);
     });
@@ -334,10 +351,10 @@ describe('Vltx.set / Vltx.replace', () => {
         assert.strictEqual(result, v);
     });
 
-    it('get decrypts a value written by set/replace', () => {
+    it('decrypt returns the plaintext written by set/replace', () => {
         const v = new Vltx({ privateKey: privateKeyPem });
         v.replace('secret', 'my-plaintext');
-        expect(v.get('secret')).eq('my-plaintext');
+        expect(v.decrypt('secret')?.toString('utf8')).eq('my-plaintext');
     });
 
     it('set throws when value exceeds MAX_SECRET_BYTES', () => {
@@ -428,7 +445,7 @@ describe('Vltx.init', () => {
             filename: vaultPath,
             privateKey: privateKeyPem,
         });
-        expect(v2.get('hello')).eq('world');
+        expect(v2.decrypt('hello')?.toString('utf8')).eq('world');
     });
 });
 
@@ -518,7 +535,7 @@ describe('Vltx.openForReading', () => {
     it('returned vault loads secrets from the file', () => {
         const v = Vltx.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
         assert(v.has('secret'));
-        expect(v.get('secret')).eq('value');
+        expect(v.decrypt('secret')?.toString('utf8')).eq('value');
     });
 
     it('returned vault has canEncrypt', () => {
@@ -606,7 +623,7 @@ describe('Vltx.openForWriting', () => {
         v.set('writeKey', 'writeValue');
         v.write();
         const r = Vltx.openForReading({ filename: vaultPath, privateKeyFilename: keyPath });
-        expect(r.get('writeKey')).eq('writeValue');
+        expect(r.decrypt('writeKey')?.toString('utf8')).eq('writeValue');
     });
 });
 
@@ -673,7 +690,7 @@ describe('lock and unlock', () => {
     it('unlock enables decryption of existing secrets', () => {
         const v = Vltx.openForWriting({ filename: vaultPath });
         v.unlock({ privateKeyFilename: keyPath });
-        expect(v.get('secret')).eq('value');
+        expect(v.decrypt('secret')?.toString('utf8')).eq('value');
     });
 
     it('unlock returns this for chaining', () => {
@@ -710,16 +727,17 @@ describe('lock and unlock', () => {
 
 describe('Map interface', () => {
     it('has returns true for loaded keys', () => {
-        const v = new Vltx({});
-        v.load({ key: 'value' });
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.set('key', 'value');
         assert(v.has('key'));
         assert(!v.has('missing'));
     });
 
-    it('get throws when no private key is set', () => {
-        const v = new Vltx({});
-        v.load({ key: 'raw-value' });
-        assert.throws(() => v.get('key'), /private key/);
+    it('decrypt throws when no private key is set', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.set('key', 'raw-value');
+        v.lock();
+        assert.throws(() => v.decrypt('key'), /private key/);
     });
 
     it('get returns undefined for a missing key', () => {
@@ -727,22 +745,16 @@ describe('Map interface', () => {
         assert.strictEqual(v.get('nonexistent'), undefined);
     });
 
-    it('getRaw returns ciphertext without decrypting', () => {
+    it('get returns the AnyEntry without decrypting', () => {
         const v = new Vltx({ privateKey: privateKeyPem });
         v.set('k', 'plaintext');
-        const raw = v.getRaw('k');
-        assert.ok(raw);
-        assert.notEqual(raw, 'plaintext');
-    });
-
-    it('getRaw returns undefined for a missing key', () => {
-        const v = new Vltx({});
-        assert.strictEqual(v.getRaw('nonexistent'), undefined);
+        const entry = v.get('k');
+        assert.ok(entry instanceof SecretEntry);
     });
 
     it('delete removes an existing key', () => {
-        const v = new Vltx({});
-        v.load({ k: 'v' });
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.set('k', 'v');
         assert(v.delete('k'));
         assert(!v.has('k'));
     });
@@ -753,48 +765,54 @@ describe('Map interface', () => {
     });
 
     it('clear removes all secrets', () => {
-        const v = new Vltx({});
-        v.load({ a: '1', b: '2' });
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.set('a', '1');
+        v.set('b', '2');
         v.clear();
         assert.equal(v.size, 0);
     });
 
     it('size reflects the current entry count', () => {
-        const v = new Vltx({});
+        const v = new Vltx({ privateKey: privateKeyPem });
         assert.equal(v.size, 0);
-        v.load({ x: '1' });
+        v.set('x', '1');
         assert.equal(v.size, 1);
-        v.load({ x: '1', y: '2' });
+        v.set('y', '2');
         assert.equal(v.size, 2);
         v.delete('x');
         assert.equal(v.size, 1);
     });
 
     it('forEach iterates over all entries', () => {
-        const v = new Vltx({});
-        v.load({ a: '1', b: '2' });
-        const collected: [string, string][] = [];
-        v.forEach((value, key) => collected.push([key, value]));
-        assert.equal(collected.length, 2);
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.set('a', '1');
+        v.set('b', '2');
+        const keys: string[] = [];
+        v.forEach((_value, key) => keys.push(key));
+        assert.equal(keys.length, 2);
     });
 
     it('keys() iterates over all keys', () => {
-        const v = new Vltx({});
-        v.load({ foo: 'bar', baz: 'qux' });
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.set('foo', 'bar');
+        v.set('baz', 'qux');
         const keys = [...v.keys()];
         assert.deepEqual(keys.sort(), ['baz', 'foo']);
     });
 
-    it('values() iterates over all raw values', () => {
-        const v = new Vltx({});
-        v.load({ a: '1', b: '2' });
+    it('values() iterates over all raw entries', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.set('a', '1');
+        v.set('b', '2');
         const vals = [...v.values()];
-        assert.deepEqual(vals.sort(), ['1', '2']);
+        assert.equal(vals.length, 2);
+        assert.ok(vals.every((e) => e instanceof SecretEntry));
     });
 
     it('entries() and [Symbol.iterator] yield the same pairs', () => {
-        const v = new Vltx({});
-        v.load({ x: '10', y: '20' });
+        const v = new Vltx({ privateKey: privateKeyPem });
+        v.set('x', '10');
+        v.set('y', '20');
         assert.deepEqual([...v.entries()], [...v]);
     });
 
@@ -803,26 +821,35 @@ describe('Map interface', () => {
         assert.equal(v[Symbol.toStringTag], 'Vltx');
     });
 
-    it('getOrInsert returns the existing decrypted value without overwriting', () => {
+    it('getOrInsert returns the existing entry without overwriting', () => {
         const v = new Vltx({ privateKey: privateKeyPem });
         v.replace('k', 'original');
-        expect(v.getOrInsert('k', 'new')).eq('original');
-        expect(v.get('k')).eq('original');
+        const existing = v.get('k');
+        assert.strictEqual(v.getOrInsert('k', 'new'), existing);
+        expect(v.decrypt('k')?.toString('utf8')).eq('original');
     });
 
-    it('getOrInsert inserts, encrypts and returns value when key is absent', () => {
+    it('getOrInsert inserts entry and returns it when key is absent', () => {
         const v = new Vltx({ privateKey: privateKeyPem });
-        expect(v.getOrInsert('k', 'default')).eq('default');
+        const entry = v.getOrInsert('k', 'default');
+        assert.ok(entry instanceof SecretEntry);
         assert(v.has('k'));
-        expect(v.get('k')).eq('default');
+        expect(v.decrypt('k')?.toString('utf8')).eq('default');
     });
 
     it('getOrInsertComputed calls the factory only when key is absent', () => {
         const v = new Vltx({ privateKey: privateKeyPem });
         let calls = 0;
-        const factory = (key: string) => { calls++; return key + '-val'; };
-        expect(v.getOrInsertComputed('k', factory)).eq('k-val');
-        expect(v.getOrInsertComputed('k', factory)).eq('k-val');
+        const pubKey = derivePublicKey(publicKeyPem as string);
+        const factory = (_key: string) => {
+            calls++;
+            const e = new SecretEntry();
+            e.setRaw(pubKey, 'computed');
+            return e;
+        };
+        const entry1 = v.getOrInsertComputed('k', factory);
+        const entry2 = v.getOrInsertComputed('k', factory);
+        assert.strictEqual(entry1, entry2);
         assert.equal(calls, 1);
     });
 });

@@ -4,7 +4,7 @@
  * A `Vltx` is an RSA-encrypted key-value store backed by a JSON file.
  * Values are encrypted with the embedded public key and decrypted on
  * demand when a private key is supplied. The class implements the
- * `Map<string, string>` interface and exposes static factory methods
+ * `Map<string, AnyEntry>` interface and exposes static factory methods
  * ({@link Vltx.open}, {@link Vltx.openForReading},
  * {@link Vltx.openForWriting}) plus instance-level key lifecycle
  * helpers ({@link Vltx#lock}, {@link Vltx#unlock}).
@@ -12,11 +12,13 @@
  */
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { KeyObject } from 'node:crypto';
-import { parsePrivateKey, parsePublicKey, derivePublicKey,
-    DEFAULT_PUBLIC_ENCODING, generateRSAKeyPair,
-    encrypt, decrypt,
-    checkKeyPairMatches} from './rsa.js';
-import { isNodeError, stuffString, unstuffString } from './util.js';
+import { parsePrivateKey, parsePublicKey, derivePublicKey, generateRSAKeyPair,
+    checkKeyPairMatches, DEFAULT_PUBLIC_ENCODING } from './rsa.js';
+import { parseEntry, SecretEntry, type AnyEntry } from './entry.js';
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+    return error instanceof Error && 'code' in error;
+}
 
 /** Options for supplying a private key to a {@link Vltx}. */
 export type PrivateKeyConfig = {
@@ -69,15 +71,15 @@ export function tagFunction(vault: Vltx, strings: TemplateStringsArray,
         throw new Error('Interpolation in not allowed.');
     }
     if (!strings[0]) { return ''; }
-    return vault.get(strings[0]) || '';
+    return vault.decrypt(strings[0])?.toString('utf8') || '';
 }
 
 /**
  * An encrypted key-value store that implements the
- * `Map<string, string>` interface.
+ * `Map<string, AnyEntry>` interface.
  *
- * Secrets are stored as RSA-encrypted strings with added entropy
- * (see {@link stuffString}).
+ * Secrets are stored as RSA-OAEP-SHA-256 encrypted entries with a random
+ * per-encryption salt (see {@link BaseEntry#setRaw}).
  * Reading a value transparently decrypts it when a private key is
  * available; without a private key the raw (encrypted) value is
  * returned instead.
@@ -85,7 +87,7 @@ export function tagFunction(vault: Vltx, strings: TemplateStringsArray,
  * Vltx files are persisted as JSON containing the public key and
  * the encrypted secrets map.
  */
-export default class Vltx implements Map<string, string> {
+export default class Vltx implements Map<string, AnyEntry> {
 
     #filename?: string;
     get filename(): string { return  this.#filename as string; }
@@ -99,7 +101,7 @@ export default class Vltx implements Map<string, string> {
 
 
 
-    #secrets: Map<string, string> = new Map();
+    #secrets: Map<string, AnyEntry> = new Map();
 
     /**
      * Creates a new Vltx instance.
@@ -300,16 +302,28 @@ export default class Vltx implements Map<string, string> {
      */
     load(secrets: { [key: string]: string }) : this {
         this.#secrets.clear();
-        Object.entries(secrets).forEach(([k, v]) => this.#secrets.set(k, v));
+        Object.entries(secrets).forEach(([k, v]) => {
+            const entry = parseEntry(v);
+            this.#secrets.set(k, entry);
+        });
         return this;
     }
 
+    decrypt(key: string): Buffer | string | undefined {
+        if (!this.canDecrypt) {
+            throw Error('A private key is needed to read secrets.');
+        }
+        const entry = this.get(key);
+        if (!entry) { return undefined; }
+        return entry.decrypt(this.#privateKey!);
+    }
+
     /**
-     * Returns a plain-object representation of the vault suitable
-     * for JSON serialization. Secrets are sorted by key for
+     * Returns a plain-object representation of the vault suitable for JSON
+     * serialization. Secrets are serialized to base64 and sorted by key for
      * deterministic output.
-     * @returns An object with a PEM `publicKey` string (or `null`)
-     *   and the `secrets` map.
+     * @returns An object with a PEM `publicKey` string (or `null`) and the
+     *   `secrets` map as base64-encoded entry strings.
      */
     toJSON(): { publicKey: string | null; secrets: Record<string, string> } {
         const publicKey = this.#publicKey ?
@@ -320,7 +334,7 @@ export default class Vltx implements Map<string, string> {
 
         return {
             publicKey,
-            secrets: Object.fromEntries(sortedEntries)
+            secrets: Object.fromEntries(sortedEntries.map(([k, v]) => [k, v.serialize()]))
         };
     }
 
@@ -353,48 +367,19 @@ export default class Vltx implements Map<string, string> {
      * @param thisArg - Value used as `this` inside the callback.
      */
     forEach(callbackfn: (
-        _value: string, _key: string, _map: Map<string, string>,
+        _value: AnyEntry, _key: string, _map: Map<string, AnyEntry>,
     ) => void, thisArg?: unknown): void {
         this.#secrets.forEach((value, key) =>
-        callbackfn.call(thisArg, value, key, this));
+        callbackfn.call(thisArg, value, key, this.#secrets));
     }
 
     /**
-     * Decrypts and returns the secret stored under `key`.
-     *
-     * Unlike the `Map` iteration methods (`entries()`, `values()`,
-     * `[Symbol.iterator]`), which yield raw ciphertext, this method
-     * performs RSA decryption and returns the original plaintext.
+     * Returns the raw {@link AnyEntry} stored under `key`, or `undefined` if
+     * the key does not exist. Use {@link Vltx#decrypt} to obtain the plaintext.
      * @param key - The secret key to look up.
-     * @returns The decrypted plaintext value, or `undefined` if `key`
-     *   does not exist.
-     * @throws {Error} If no private key is loaded (`canDecrypt` is
-     *   `false`).
+     * @returns The entry, or `undefined` if `key` does not exist.
      */
-    get(key: string): string | undefined {
-        if (!this.canDecrypt) {
-            throw Error('A private key is needed to read secrets.');
-        }
-        const raw = this.getRaw(key);
-        if (!raw) { return raw; }
-        const buf = Buffer.from(raw, 'base64');
-        const decrypted = decrypt(this.#privateKey!, buf)
-            .toString('utf8');
-        return unstuffString(decrypted);
-    }
-
-    /**
-     * Returns the raw base64-encoded ciphertext for `key` without
-     * decrypting it.
-     *
-     * Useful for inspecting or transferring encrypted values without
-     * requiring a private key. Returns `undefined` when the key does
-     * not exist.
-     * @param key - The secret key to look up.
-     * @returns The base64-encoded ciphertext, or `undefined` if `key`
-     *   does not exist.
-     */
-    getRaw(key: string) : string | undefined {
+    get(key: string): AnyEntry | undefined {
         if (this.has(key)) {
             return this.#secrets.get(key);
         }
@@ -428,19 +413,21 @@ export default class Vltx implements Map<string, string> {
     }
 
     // Encrypts value and stores it; called by set and replace.
-    #doSet(key: string, value: string): this {
+    #doSet(key: string, value: string | AnyEntry): this {
         if (!this.#publicKey) {
             throw new Error('Public key is required to update the vault');
         }
 
-        if (Buffer.byteLength(value, 'utf8') > MAX_SECRET_BYTES) {
-            throw new Error(`Value exceeds maximum secret size of ${MAX_SECRET_BYTES} bytes.`);
+        if (typeof value === 'string') {
+            if (Buffer.byteLength(value, 'utf8') > MAX_SECRET_BYTES) {
+                throw new Error(`Value exceeds maximum secret size of ${MAX_SECRET_BYTES} bytes.`);
+            }
+            const entry = new SecretEntry();
+            entry.setRaw(this.#publicKey!, value);
+            this.#secrets.set(key, entry);
+        } else {
+            this.#secrets.set(key, value);
         }
-
-        const stuffed = stuffString(value);
-        const encrypted = encrypt(this.#publicKey, stuffed)
-            .toString('base64');
-        this.#secrets.set(key, encrypted);
         return this;
     }
 
@@ -458,7 +445,7 @@ export default class Vltx implements Map<string, string> {
      * @throws {Error} If `value` exceeds {@link MAX_SECRET_BYTES}
      *   UTF-8 bytes.
      */
-    set(key: string, value: string): this {
+    set(key: string, value: string | AnyEntry): this {
         if (this.has(key)) {
             throw new Error(
                 'Attempting to replace existing entry ' +
@@ -494,7 +481,7 @@ export default class Vltx implements Map<string, string> {
      * `Object.fromEntries(vault)` and `for (const [k, v] of vault.entries())`
      * will produce encrypted base64 blobs, not plaintext.
      */
-    entries(): MapIterator<[string, string]> {
+    entries(): MapIterator<[string, AnyEntry]> {
         return this.#secrets.entries();
     }
 
@@ -511,7 +498,7 @@ export default class Vltx implements Map<string, string> {
      * no decryption occurs. Use {@link get} to retrieve a decrypted value
      * for a specific key.
      */
-    values(): MapIterator<string> {
+    values(): MapIterator<AnyEntry> {
         return this.#secrets.values();
     }
 
@@ -522,11 +509,11 @@ export default class Vltx implements Map<string, string> {
      * @param value - Default value to insert when the key is absent.
      * @returns The existing or newly inserted value.
      */
-    getOrInsert(key: string, value: string): string {
+    getOrInsert(key: string, value: AnyEntry | string): AnyEntry {
         if (!this.has(key)) {
             this.set(key, value);
         }
-        return this.get(key) as string;
+        return this.get(key) as AnyEntry;
     }
 
     /**
@@ -538,12 +525,12 @@ export default class Vltx implements Map<string, string> {
      * @returns The existing or newly computed value.
      */
     getOrInsertComputed(
-        key: string, callbackfn: (_key: string) => string,
-    ): string {
+        key: string, callbackfn: (_key: string) => AnyEntry,
+    ): AnyEntry {
         if (!this.has(key)) {
             this.set(key, callbackfn(key));
         }
-        return this.get(key) as string;
+        return this.get(key) as AnyEntry;
     }
 
     /**
@@ -556,7 +543,7 @@ export default class Vltx implements Map<string, string> {
      * `Object.fromEntries(vault)` and `for (const [k, v] of vault)` will
      * produce encrypted base64 blobs, not plaintext.
      */
-    [Symbol.iterator](): MapIterator<[string, string]> {
+    [Symbol.iterator](): MapIterator<[string, AnyEntry]> {
         return this.#secrets.entries();
     }
 
@@ -644,8 +631,6 @@ export default class Vltx implements Map<string, string> {
      *   `canDecrypt` false.
      * @throws {Error} If `opts.filename` is not provided.
      * @throws {Error} If `opts.filename` does not exist.
-     * @throws {Error} If the vault file is loaded but contains no
-     *   valid public key.
      */
     static openForWriting(opts: VltxConfig): Vltx {
         const { filename } = opts;
@@ -654,12 +639,9 @@ export default class Vltx implements Map<string, string> {
             throw new Error('A filename is required to open the vault');
         }
 
-        const v =new Vltx({ filename });
-        if (!v.canEncrypt) {
-            if (!v.loaded) {
-                throw new Error(`Unable to open vault. ${filename} does not exist`);
-            }
-            throw new Error('Vault or public key may be corrupt');
+        const v = new Vltx({ filename });
+        if (!v.loaded) {
+            throw new Error(`Unable to open vault. ${filename} does not exist`);
         }
 
         return v;

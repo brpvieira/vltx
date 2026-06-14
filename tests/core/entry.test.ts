@@ -1,6 +1,6 @@
 import { assert, describe, it } from 'vitest';
 import { randomBytes } from 'node:crypto';
-import { getRawEntry, rawEntryToString, EntryType, SecretEntry } from '../../src/core/entry.js';
+import { getRawEntry, rawEntryToString, EntryType, SecretEntry, LargeEntry, parseEntry } from '../../src/core/entry.js';
 import { generateRSAKeyPair, parsePublicKey, parsePrivateKey } from '../../src/core/rsa.js';
 
 describe('getRawEntry / rawEntryToString', () => {
@@ -222,6 +222,71 @@ describe('getRawEntry / rawEntryToString', () => {
             const entry = new SecretEntry();
             entry.setRaw(pubKey, 'secret');
             assert.throws(() => entry.decrypt(otherPrivKey));
+        });
+
+        it('getRaw returns an empty Buffer when no raw has been set', () => {
+            const entry = new SecretEntry();
+            const raw = entry.getRaw();
+            assert.ok(Buffer.isBuffer(raw));
+            assert.strictEqual(raw.byteLength, 0);
+        });
+
+        it('serialize returns a valid base64 string with empty payload when no raw has been set', () => {
+            const entry = new SecretEntry();
+            const str = entry.serialize();
+            assert.doesNotThrow(() => Buffer.from(str, 'base64'));
+        });
+
+        it('modified is false immediately after construction', () => {
+            const entry = new SecretEntry();
+            assert.strictEqual(entry.modified, false);
+        });
+
+        it('modified is true after setRaw is called on an imported entry', async () => {
+            const str = rawEntryToString({
+                prefix: '$', createdOn: new Date(0), modifiedOn: new Date(0), raw: Buffer.alloc(0)
+            });
+            const entry = SecretEntry.parse(str); // #importedOn = now
+            await new Promise((r) => setTimeout(r, 2)); // ensure next new Date() > #importedOn
+            entry.setRaw(pubKey, 'value');
+            assert.strictEqual(entry.modified, true);
+        });
+    });
+
+    describe('LargeEntry', () => {
+        const { privateKey: privPem, publicKey: pubPem } = generateRSAKeyPair();
+        const pubKey = parsePublicKey(pubPem as string);
+        const privKey = parsePrivateKey(privPem as string);
+
+        it('has the correct instance prefix and type', () => {
+            const entry = new LargeEntry();
+            assert.strictEqual(entry.prefix, '@');
+            assert.strictEqual(entry.type, EntryType.Large);
+        });
+
+        it('parse preserves prefix, type, and timestamps', () => {
+            const entry = new LargeEntry();
+            entry.setRaw(pubKey, 'large-value');
+            const parsed = LargeEntry.parse(entry.serialize());
+            assert.strictEqual(parsed.prefix, '@');
+            assert.strictEqual(parsed.type, EntryType.Large);
+            assert.strictEqual(parsed.createdOn.getTime(), entry.createdOn.getTime());
+            assert.strictEqual(parsed.modifiedOn.getTime(), entry.modifiedOn.getTime());
+        });
+
+        it('decrypt after serialize and parse recovers the original value', () => {
+            const entry = new LargeEntry();
+            entry.setRaw(pubKey, 'large-secret');
+            const parsed = LargeEntry.parse(entry.serialize());
+            assert.strictEqual(parsed.decrypt(privKey, 'utf8'), 'large-secret');
+        });
+    });
+
+    describe('parseEntry', () => {
+        it('throws for an unknown prefix byte', () => {
+            const buf = Buffer.alloc(17);
+            buf[0] = 0x58; // 'X' — not a registered prefix
+            assert.throws(() => parseEntry(buf.toString('base64')), /Unknown entry type/);
         });
     });
 });
