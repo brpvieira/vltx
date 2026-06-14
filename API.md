@@ -276,7 +276,7 @@ Default private key export options: PKCS#8, PEM, no encryption.
 <a name="module_core/rsa.DEFAULT_PUBLIC_ENCODING"></a>
 
 ### core/rsa.DEFAULT\_PUBLIC\_ENCODING
-Default public key export options: SPKI, PEM.
+Default public key export options: PKCS#1, DER.
 
 **Kind**: static constant of [<code>core/rsa</code>](#module_core/rsa)  
 <a name="module_core/rsa.RSA_OPTIONS"></a>
@@ -293,7 +293,8 @@ The private key is encoded as PKCS#8; if a passphrase is provided it is
 encrypted with AES-256-CBC.
 
 **Kind**: static method of [<code>core/rsa</code>](#module_core/rsa)  
-**Returns**: An object with `publicKey` and `privateKey` PEM strings.  
+**Returns**: An object with `privateKey` as a PEM string and `publicKey` as a
+  base64-encoded DER string.  
 
 | Param | Description |
 | --- | --- |
@@ -302,14 +303,14 @@ encrypted with AES-256-CBC.
 <a name="module_core/rsa.parsePublicKey"></a>
 
 ### core/rsa.parsePublicKey(str) ⇒
-Parses a PEM-encoded public key.
+Parses a base64 encoded DER-encoded public key.
 
 **Kind**: static method of [<code>core/rsa</code>](#module_core/rsa)  
 **Returns**: A `KeyObject` representing the public key.  
 
 | Param | Description |
 | --- | --- |
-| str | PEM string containing the public key. |
+| str | base64 string containing the DER encoded public key. |
 
 <a name="module_core/rsa.parsePrivateKey"></a>
 
@@ -602,8 +603,8 @@ serialization. Secrets are serialized to base64 and sorted by key for
 deterministic output.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
-**Returns**: An object with a PEM `publicKey` string (or `null`) and the
-  `secrets` map as base64-encoded entry strings.  
+**Returns**: An object with a base64-encoded DER `publicKey` string (or
+  `null`) and the `secrets` map as base64-encoded entry strings.  
 <a name="module_core/vltx--module.exports+clear"></a>
 
 #### module.exports.clear()
