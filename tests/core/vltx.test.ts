@@ -2,17 +2,17 @@ import { assert, beforeAll, describe, expect, it } from 'vitest';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import Vltx, { MAX_SECRET_BYTES } from '../../src/core/vltx.js';
-import { generateRSAKeyPair, parsePrivateKey, derivePublicKey } from '../../src/core/rsa.js';
+import { generateRSAKeyPair, parsePrivateKey, parsePublicKey, derivePublicKey } from '../../src/core/rsa.js';
 import { SecretEntry } from '../../src/core/entry.js';
 
 let privateKeyPem: string;
-let publicKeyPem: string;
+let publicKeyB64Der: string;
 let tmpDir: string;
 
 beforeAll(() => {
     const kp = generateRSAKeyPair();
     privateKeyPem = kp.privateKey as string;
-    publicKeyPem = kp.publicKey as string;
+    publicKeyB64Der = kp.publicKey;
     tmpDir = mkdtempSync(join(__dirname, '../tmp' , 'test-'));
 });
 
@@ -145,7 +145,7 @@ describe('Vltx.load', () => {
     let entryB: string;
 
     beforeAll(() => {
-        const pubKey = derivePublicKey(publicKeyPem as string);
+        const pubKey = parsePublicKey(publicKeyB64Der);
         const a = new SecretEntry();
         a.setRaw(pubKey, 'val-a');
         entryA = a.serialize();
@@ -254,14 +254,14 @@ describe('Vltx.read / Vltx.write', () => {
 
     it('read throws a friendly error when secrets is null', () => {
         const vaultPath = join(tmpDir, 'null-secrets.vault.json');
-        writeFileSync(vaultPath, JSON.stringify({ publicKey: publicKeyPem, secrets: null }));
+        writeFileSync(vaultPath, JSON.stringify({ publicKey: publicKeyB64Der, secrets: null }));
         const v = new Vltx({});
         assert.throws(() => v.read(vaultPath), /missing secrets/);
     });
 
     it('read throws a friendly error when secrets is missing', () => {
         const vaultPath = join(tmpDir, 'missing-secrets.vault.json');
-        writeFileSync(vaultPath, JSON.stringify({ publicKey: publicKeyPem }));
+        writeFileSync(vaultPath, JSON.stringify({ publicKey: publicKeyB64Der }));
         const v = new Vltx({});
         assert.throws(() => v.read(vaultPath), /missing secrets/);
     });
@@ -287,11 +287,11 @@ describe('Vltx.toJSON', () => {
         assert.strictEqual(json.publicKey, null);
     });
 
-    it('returns the public key as a PEM string', () => {
+    it('returns the public key as a base64-encoded DER string', () => {
         const v = new Vltx({ privateKey: privateKeyPem });
         const json = v.toJSON();
         assert(json.publicKey);
-        assert.match(json.publicKey, /BEGIN PUBLIC KEY/);
+        assert.match(json.publicKey, /^[A-Za-z0-9+/]+=*$/);
     });
 
     it('includes all stored secrets', () => {
@@ -840,7 +840,7 @@ describe('Map interface', () => {
     it('getOrInsertComputed calls the factory only when key is absent', () => {
         const v = new Vltx({ privateKey: privateKeyPem });
         let calls = 0;
-        const pubKey = derivePublicKey(publicKeyPem as string);
+        const pubKey = parsePublicKey(publicKeyB64Der);
         const factory = (_key: string) => {
             calls++;
             const e = new SecretEntry();

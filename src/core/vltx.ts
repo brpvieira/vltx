@@ -322,12 +322,12 @@ export default class Vltx implements Map<string, AnyEntry> {
      * Returns a plain-object representation of the vault suitable for JSON
      * serialization. Secrets are serialized to base64 and sorted by key for
      * deterministic output.
-     * @returns An object with a PEM `publicKey` string (or `null`) and the
-     *   `secrets` map as base64-encoded entry strings.
+     * @returns An object with a base64-encoded DER `publicKey` string (or
+     *   `null`) and the `secrets` map as base64-encoded entry strings.
      */
     toJSON(): { publicKey: string | null; secrets: Record<string, string> } {
         const publicKey = this.#publicKey ?
-        this.#publicKey.export(DEFAULT_PUBLIC_ENCODING) as string : null;
+        this.#publicKey.export(DEFAULT_PUBLIC_ENCODING).toString('base64') : null;
 
         const sortedEntries = [...this.entries()]
             .sort(([a], [b]) => a.localeCompare(b));
