@@ -1,95 +1,93 @@
 import { assert, describe, it } from 'vitest';
-import { derivePublicKey, encrypt, decrypt, generateRSAKeyPair, parsePrivateKey,
+import { derivePublicKey, generateRSAKeyPair, parsePrivateKey,
     parsePublicKey, DEFAULT_PUBLIC_ENCODING, checkKeyPairMatches } from '../../src/core/rsa.js';
+import { createPublicKey, KeyObject } from 'node:crypto';
+
+function decodePublicKey(base64Str: string): KeyObject {
+    return createPublicKey({
+        key: Buffer.from(base64Str, 'base64'),
+        ...DEFAULT_PUBLIC_ENCODING
+    });
+}
+
+function assertPublicKey(key: string | KeyObject) : KeyObject {
+    let publicKey: KeyObject;
+    if (typeof key === 'string') {
+        publicKey = decodePublicKey(key as string);
+    } else {
+        publicKey = key as KeyObject;
+    }
+    assert.strictEqual(publicKey.type, 'public');
+    assert.strictEqual(publicKey.asymmetricKeyType, 'rsa');
+    assert.strictEqual(publicKey.asymmetricKeyDetails?.modulusLength, 4096);
+    return publicKey;
+}
+
+function assertPrivateKey(key: KeyObject) {
+        assert.strictEqual(key.type, 'private');
+        assert.strictEqual(key.asymmetricKeyType, 'rsa');
+        assert.strictEqual(key.asymmetricKeyDetails?.modulusLength, 4096);
+}
 
 describe('RSA', () => {
     it('generates a key pair without a password', () => {
         const { privateKey, publicKey } = generateRSAKeyPair();
-        assert.match(privateKey, /---BEGIN PRIVATE KEY--/);
-        assert.match(publicKey, /---BEGIN PUBLIC KEY---/);
+        assert.match(privateKey as string, /---BEGIN PRIVATE KEY--/);
+        assertPublicKey(publicKey as string);
     });
 
     it('generates a password-protected key pair', () => {
         const { privateKey, publicKey } = generateRSAKeyPair('foobar');
-        assert.match(privateKey, /---BEGIN ENCRYPTED PRIVATE KEY--/);
-        assert.match(publicKey, /---BEGIN PUBLIC KEY---/);
+        assert.match(privateKey as string, /---BEGIN ENCRYPTED PRIVATE KEY--/);
+        assertPublicKey(publicKey as string);
     });
 
     it('parses a public key from a string', () => {
         const { publicKey } = generateRSAKeyPair();
-        const parsed = parsePublicKey(publicKey);
-        assert(parsed);
-        assert.deepStrictEqual(parsed.type, 'public');
-        assert.deepStrictEqual(parsed.asymmetricKeyType, 'rsa');
-        assert.deepStrictEqual(parsed.asymmetricKeyDetails?.modulusLength, 4096);
+        const parsed = parsePublicKey(publicKey as string);
+        assertPublicKey(parsed);
     });
 
     it('parses a private key from a string', () => {
         const { privateKey } = generateRSAKeyPair();
-        const parsed = parsePrivateKey(privateKey);
-        assert(parsed);
-        assert.deepStrictEqual(parsed.type, 'private');
-        assert.deepStrictEqual(parsed.asymmetricKeyType, 'rsa');
-        assert.deepStrictEqual(parsed.asymmetricKeyDetails?.modulusLength, 4096);
+        const parsed = parsePrivateKey(privateKey as string);
+        assertPrivateKey(parsed);
     });
 
     it('parses an ecrypted private key from a string', () => {
         const { privateKey } = generateRSAKeyPair('foobar');
-        const parsed = parsePrivateKey(privateKey, 'foobar');
-        assert(parsed);
-        assert.deepStrictEqual(parsed.type, 'private');
-        assert.deepStrictEqual(parsed.asymmetricKeyType, 'rsa');
-        assert.deepStrictEqual(parsed.asymmetricKeyDetails?.modulusLength, 4096);
+        const parsed = parsePrivateKey(privateKey as string, 'foobar');
+        assertPrivateKey(parsed);
     });
 
     it('derives the public key given a private key', () => {
         const { privateKey, publicKey } = generateRSAKeyPair();
-        const parsed = parsePrivateKey(privateKey);
+        const parsed = parsePrivateKey(privateKey as string);
         const derived = derivePublicKey(parsed);
         assert(derived);
-        assert.deepStrictEqual(derived.type, 'public');
-        assert.deepStrictEqual(derived.asymmetricKeyType, 'rsa');
-        assert.deepStrictEqual(derived.asymmetricKeyDetails?.modulusLength, 4096);
-        const exported = derived.export(DEFAULT_PUBLIC_ENCODING).toString('utf8');
+        assertPublicKey(derived);
+        const exported = derived.export(DEFAULT_PUBLIC_ENCODING).toString('base64');
         assert.deepStrictEqual(publicKey, exported);
-    });
-
-    describe('encrypt and decrypt', () => {
-        const { privateKey: privPem, publicKey: pubPem } = generateRSAKeyPair();
-        const pubKey = parsePublicKey(pubPem);
-        const privKey = parsePrivateKey(privPem);
-
-        it('round-trips a plaintext string', () => {
-            const plaintext = 'hello vault';
-            const ciphertext = encrypt(pubKey, plaintext);
-            const decrypted = decrypt(privKey, ciphertext);
-            assert.strictEqual(decrypted.toString('utf8'), plaintext);
-        });
-
-        it('produces different ciphertext on each call due to OAEP randomness', () => {
-            const ct1 = encrypt(pubKey, 'same input');
-            const ct2 = encrypt(pubKey, 'same input');
-            assert.notDeepEqual(ct1, ct2);
-        });
-
-        it('throws when decrypting with the wrong private key', () => {
-            const { privateKey: otherPrivPem } = generateRSAKeyPair();
-            const otherPrivKey = parsePrivateKey(otherPrivPem);
-            const ciphertext = encrypt(pubKey, 'hello');
-            assert.throws(() => decrypt(otherPrivKey, ciphertext));
-        });
     });
 
     describe('checkKeyPairMatches', () => {
         it('returns true for a matching key pair', () => {
-            const { privateKey: privPem, publicKey: pubPem } = generateRSAKeyPair();
-            assert(checkKeyPairMatches(parsePrivateKey(privPem), parsePublicKey(pubPem)));
+            const { privateKey: privPem, publicKey: pubB64Der } = generateRSAKeyPair();
+            assert(checkKeyPairMatches(parsePrivateKey(privPem as string),
+                parsePublicKey(pubB64Der as string)));
         });
 
         it('returns false for a mismatched key pair', () => {
             const { privateKey: privPem } = generateRSAKeyPair();
-            const { publicKey: otherPubPem } = generateRSAKeyPair();
-            assert(!checkKeyPairMatches(parsePrivateKey(privPem), parsePublicKey(otherPubPem)));
+            const { publicKey: otherPubB64Der } = generateRSAKeyPair();
+            assert(!checkKeyPairMatches(parsePrivateKey(privPem as string),
+                parsePublicKey(otherPubB64Der as string)));
+        });
+
+        it('returns false when sign throws (e.g. public key passed as private)', () => {
+            const { publicKey: pubB64Der } = generateRSAKeyPair();
+            const pub = parsePublicKey(pubB64Der);
+            assert(!checkKeyPairMatches(pub as unknown as ReturnType<typeof parsePublicKey>, pub));
         });
     });
 });

@@ -1,6 +1,13 @@
 ## Modules
 
 <dl>
+<dt><a href="#module_core/entry">core/entry</a></dt>
+<dd><p>Entry types for the vault, with RSA-OAEP-SHA-256 encryption and binary serialization.</p>
+<p>Each entry is a self-describing record: a 1-byte ASCII prefix, two 8-byte
+big-endian millisecond timestamps (created/modified), and an RSA-OAEP
+ciphertext payload prepended with a 16-byte random salt. Entries are
+base64-encoded for storage in the vault JSON file.</p>
+</dd>
 <dt><a href="#module_core/logger">core/logger</a></dt>
 <dd><p>Structured logger for CLI output.</p>
 <p>Provides levelled log functions (<code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code>, <code>log</code>)
@@ -13,19 +20,16 @@ The active threshold is controlled via <a href="setLogLevel">setLogLevel</a>.</p
 (PKCS#8 private key, SPKI public key, both in PEM format) and to
 parse PEM-encoded keys into <code>KeyObject</code> instances.</p>
 </dd>
-<dt><a href="#module_core/util">core/util</a></dt>
-<dd><p>String encoding and error-narrowing utilities.</p>
-<p>Provides base64 helpers, a salt-and-nonce stuffing layer used to
-ensure each RSA encryption of the same plaintext produces a unique
-ciphertext, and a Node.js <code>ErrnoException</code> type guard.</p>
-</dd>
 <dt><a href="#module_core/vltx">core/vltx</a></dt>
 <dd><p>Core <a href="Vltx">Vltx</a> class and associated configuration types.</p>
-<p>A <code>Vltx</code> is an RSA-encrypted key-value store backed by a JSON file.
-Values are encrypted with the embedded public key and decrypted on
-demand when a private key is supplied. The class implements the
-<code>Map&lt;string, string&gt;</code> interface and exposes static factory methods
-(<a href="Vltx.open">Vltx.open</a>, <a href="Vltx.openForReading">Vltx.openForReading</a>,
+<p>A <code>Vltx</code> is an encrypted key-value store backed by a JSON file.
+Short secrets (≤ <a href="MAX_SECRET_BYTES">MAX_SECRET_BYTES</a> UTF-8 bytes) are stored as
+RSA-OAEP-SHA-256 encrypted <a href="SecretEntry">SecretEntry</a> values. Larger values
+are stored as <a href="LargeEntry">LargeEntry</a> values using hybrid AES-256-GCM
+encryption with an RSA-wrapped key — chosen automatically at write
+time. Values are decrypted on demand when a private key is supplied.
+The class implements the <code>Map&lt;string, AnyEntry&gt;</code> interface and exposes
+static factory methods (<a href="Vltx.open">Vltx.open</a>, <a href="Vltx.openForReading">Vltx.openForReading</a>,
 <a href="Vltx.openForWriting">Vltx.openForWriting</a>) plus instance-level key lifecycle
 helpers (<a href="Vltx#lock">Vltx#lock</a>, <a href="Vltx#unlock">Vltx#unlock</a>).</p>
 </dd>
@@ -64,9 +68,251 @@ to stdout. Exits with code 1 if the key does not exist.</p>
 vault to stdout.</p>
 </dd>
 <dt><a href="#listKeys">listKeys(v)</a> ⇒ <code>void</code></dt>
-<dd><p>Prints all secret keys in <code>v</code> as a formatted, sorted list.</p>
+<dd><p>Prints a table of all secrets in <code>v</code> sorted by key, showing entry
+type and timestamps.</p>
 </dd>
 </dl>
+
+<a name="module_core/entry"></a>
+
+## core/entry
+Entry types for the vault, with RSA-OAEP-SHA-256 encryption and binary serialization.
+
+Each entry is a self-describing record: a 1-byte ASCII prefix, two 8-byte
+big-endian millisecond timestamps (created/modified), and an RSA-OAEP
+ciphertext payload prepended with a 16-byte random salt. Entries are
+base64-encoded for storage in the vault JSON file.
+
+
+* [core/entry](#module_core/entry)
+    * [.BaseEntry](#module_core/entry.BaseEntry)
+    * [.SecretEntry](#module_core/entry.SecretEntry)
+    * [.LargeEntry](#module_core/entry.LargeEntry)
+        * _instance_
+            * [.setRaw(publicKey, data)](#module_core/entry.LargeEntry+setRaw)
+            * [.decrypt(privateKey, encoding)](#module_core/entry.LargeEntry+decrypt) ⇒
+        * _static_
+            * [.parse(base64Str)](#module_core/entry.LargeEntry.parse) ⇒
+    * [.getRawEntry(str)](#module_core/entry.getRawEntry) ⇒
+    * [.rawEntryToString(rawEntry)](#module_core/entry.rawEntryToString) ⇒
+    * [.rsaEncrypt(publicKey, data)](#module_core/entry.rsaEncrypt) ⇒
+    * [.rsaDecrypt(raw, privateKey)](#module_core/entry.rsaDecrypt) ⇒
+    * [.wrapAESPayload(payload)](#module_core/entry.wrapAESPayload) ⇒
+    * [.aesEncrypt(publicKey, payload)](#module_core/entry.aesEncrypt) ⇒
+    * [.aesDecrypt(aesKey, payload, encoding)](#module_core/entry.aesDecrypt) ⇒
+    * [.unwrapAESPayload(buf)](#module_core/entry.unwrapAESPayload) ⇒
+    * [.parseEntry(base64Str)](#module_core/entry.parseEntry) ⇒
+
+<a name="module_core/entry.BaseEntry"></a>
+
+### core/entry.BaseEntry
+Abstract base for all vault entry types.
+
+Manages the encrypted payload and implements the shared RSA-OAEP-SHA-256
+encrypt/decrypt cycle. A 16-byte random salt is prepended to each plaintext
+before encryption so that identical values produce distinct ciphertexts.
+Subclasses must declare their own [IEntry#prefix](IEntry#prefix) and [IEntry#type](IEntry#type).
+
+**Kind**: static class of [<code>core/entry</code>](#module_core/entry)  
+<a name="module_core/entry.SecretEntry"></a>
+
+### core/entry.SecretEntry
+A vault entry for short secrets (≤ [MAX_SECRET_BYTES](MAX_SECRET_BYTES) UTF-8 bytes), identified by the `$` prefix.
+
+**Kind**: static class of [<code>core/entry</code>](#module_core/entry)  
+<a name="module_core/entry.LargeEntry"></a>
+
+### core/entry.LargeEntry
+A vault entry for larger payloads, identified by the `@` prefix.
+
+Uses hybrid encryption: the plaintext is AES-256-GCM encrypted with
+a fresh random key, and that key is RSA-OAEP-SHA-256 wrapped. The
+serialized payload follows the [AESEnvelope](AESEnvelope) wire layout
+produced by [wrapAESPayload](wrapAESPayload).
+
+**Kind**: static class of [<code>core/entry</code>](#module_core/entry)  
+
+* [.LargeEntry](#module_core/entry.LargeEntry)
+    * _instance_
+        * [.setRaw(publicKey, data)](#module_core/entry.LargeEntry+setRaw)
+        * [.decrypt(privateKey, encoding)](#module_core/entry.LargeEntry+decrypt) ⇒
+    * _static_
+        * [.parse(base64Str)](#module_core/entry.LargeEntry.parse) ⇒
+
+<a name="module_core/entry.LargeEntry+setRaw"></a>
+
+#### largeEntry.setRaw(publicKey, data)
+Encrypts `data` with AES-256-GCM using a fresh random key, then
+RSA-OAEP-SHA-256 wraps that key and stores the serialized
+[AESEnvelope](AESEnvelope) as the raw payload.
+
+**Kind**: instance method of [<code>LargeEntry</code>](#module_core/entry.LargeEntry)  
+
+| Param | Description |
+| --- | --- |
+| publicKey | RSA public key used to wrap the AES key. |
+| data | UTF-8 plaintext to encrypt. |
+
+<a name="module_core/entry.LargeEntry+decrypt"></a>
+
+#### largeEntry.decrypt(privateKey, encoding) ⇒
+Unwraps the RSA-encrypted AES key with `privateKey`, then
+decrypts the AES-256-GCM ciphertext. Throws if the GCM
+authentication tag does not match.
+
+**Kind**: instance method of [<code>LargeEntry</code>](#module_core/entry.LargeEntry)  
+**Returns**: Plaintext as a `Buffer`, or as a string when `encoding`
+  is given.  
+**Throws**:
+
+- <code>Error</code> If the GCM auth tag fails or `privateKey` does
+  not match.
+
+
+| Param | Description |
+| --- | --- |
+| privateKey | RSA private key matching the one used in   [LargeEntry#setRaw](LargeEntry#setRaw). |
+| encoding | Optional encoding; returns a string when set,   Buffer otherwise. |
+
+<a name="module_core/entry.LargeEntry.parse"></a>
+
+#### LargeEntry.parse(base64Str) ⇒
+Parses a base64-encoded vault entry into a [LargeEntry](LargeEntry).
+
+**Kind**: static method of [<code>LargeEntry</code>](#module_core/entry.LargeEntry)  
+**Returns**: A new [LargeEntry](LargeEntry) with the parsed payload.  
+
+| Param | Description |
+| --- | --- |
+| base64Str | A serialized entry from   [BaseEntry#serialize](BaseEntry#serialize). |
+
+<a name="module_core/entry.getRawEntry"></a>
+
+### core/entry.getRawEntry(str) ⇒
+Parses a base64-encoded vault entry string into its constituent fields.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: A [RawEntry](RawEntry) with the prefix byte, timestamps, and raw payload.  
+
+| Param | Description |
+| --- | --- |
+| str | Base64 string produced by [rawEntryToString](rawEntryToString). |
+
+<a name="module_core/entry.rawEntryToString"></a>
+
+### core/entry.rawEntryToString(rawEntry) ⇒
+Serializes a [RawEntry](RawEntry) to a base64 string for storage.
+Wire format: `[1-byte prefix][8-byte createdOn ms BE][8-byte modifiedOn ms BE][payload]`.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: A base64-encoded string.  
+
+| Param | Description |
+| --- | --- |
+| rawEntry | The raw entry to serialize. |
+
+<a name="module_core/entry.rsaEncrypt"></a>
+
+### core/entry.rsaEncrypt(publicKey, data) ⇒
+Encrypts `data` with RSA-OAEP-SHA-256, prepending a 16-byte random salt so
+that identical plaintexts produce distinct ciphertexts.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: The RSA ciphertext as a Buffer.  
+
+| Param | Description |
+| --- | --- |
+| publicKey | The RSA public key to encrypt with. |
+| data | The plaintext to encrypt, as a Buffer or UTF-8 string. |
+
+<a name="module_core/entry.rsaDecrypt"></a>
+
+### core/entry.rsaDecrypt(raw, privateKey) ⇒
+Decrypts an RSA-OAEP-SHA-256 ciphertext and strips the 16-byte random salt
+prepended by [BaseEntry#setRaw](BaseEntry#setRaw).
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: The original plaintext as a Buffer, with the leading salt removed.  
+
+| Param | Description |
+| --- | --- |
+| raw | The RSA ciphertext buffer. |
+| privateKey | The RSA private key matching the public key used to encrypt. |
+
+<a name="module_core/entry.wrapAESPayload"></a>
+
+### core/entry.wrapAESPayload(payload) ⇒
+Serializes an [AESEnvelope](AESEnvelope) into a single contiguous Buffer.
+
+Wire layout: `[512-byte rsaEncryptedKey][12-byte iv][16-byte authTag][ciphertext]`.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: A Buffer containing all envelope fields concatenated in declaration order.  
+
+| Param | Description |
+| --- | --- |
+| payload | The AES envelope to serialize. |
+
+<a name="module_core/entry.aesEncrypt"></a>
+
+### core/entry.aesEncrypt(publicKey, payload) ⇒
+Encrypts `payload` with AES-256-GCM using a freshly generated random key and
+IV, then RSA-wraps the AES key via [rsaEncrypt](rsaEncrypt).
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: An [AESEnvelope](AESEnvelope) with the RSA-wrapped key, IV, authentication
+  tag, and ciphertext.  
+
+| Param | Description |
+| --- | --- |
+| publicKey | The RSA public key used to wrap the AES key. |
+| payload | The UTF-8 plaintext to encrypt. |
+
+<a name="module_core/entry.aesDecrypt"></a>
+
+### core/entry.aesDecrypt(aesKey, payload, encoding) ⇒
+Decrypts an AES-256-GCM ciphertext from an [AESEnvelope](AESEnvelope) using the
+supplied raw AES key. Throws if the authentication tag does not match.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: The plaintext as a `Buffer`, or as a string when `encoding` is given.  
+
+| Param | Description |
+| --- | --- |
+| aesKey | The 32-byte AES key (already RSA-decrypted). |
+| payload | The [AESEnvelope](AESEnvelope) containing the IV, authentication   tag, and ciphertext. |
+| encoding | Optional encoding; when provided the decrypted bytes are   returned as a string instead of a Buffer. |
+
+<a name="module_core/entry.unwrapAESPayload"></a>
+
+### core/entry.unwrapAESPayload(buf) ⇒
+Parses a contiguous Buffer back into an [AESEnvelope](AESEnvelope).
+
+Inverse of [wrapAESPayload](wrapAESPayload). Expects the wire layout produced by that function.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: The deserialized [AESEnvelope](AESEnvelope).  
+
+| Param | Description |
+| --- | --- |
+| buf | A Buffer produced by [wrapAESPayload](wrapAESPayload). |
+
+<a name="module_core/entry.parseEntry"></a>
+
+### core/entry.parseEntry(base64Str) ⇒
+Parses a base64-encoded vault entry and returns the appropriate concrete
+instance based on the prefix byte.
+
+**Kind**: static method of [<code>core/entry</code>](#module_core/entry)  
+**Returns**: A concrete [AnyEntry](AnyEntry) instance.  
+**Throws**:
+
+- <code>Error</code> If the prefix byte does not match any registered entry type.
+
+
+| Param | Description |
+| --- | --- |
+| base64Str | A serialized entry produced by [BaseEntry#serialize](BaseEntry#serialize). |
 
 <a name="module_core/logger"></a>
 
@@ -179,8 +425,6 @@ parse PEM-encoded keys into `KeyObject` instances.
     * [.parsePublicKey(str)](#module_core/rsa.parsePublicKey) ⇒
     * [.parsePrivateKey(str, passphrase)](#module_core/rsa.parsePrivateKey) ⇒
     * [.derivePublicKey(input)](#module_core/rsa.derivePublicKey) ⇒
-    * [.encrypt(key, data)](#module_core/rsa.encrypt) ⇒
-    * [.decrypt(key, data)](#module_core/rsa.decrypt) ⇒
     * [.checkKeyPairMatches(privateKey, publicKey)](#module_core/rsa.checkKeyPairMatches) ⇒
 
 <a name="module_core/rsa.DEFAULT_PRIVATE_ENCODING"></a>
@@ -192,7 +436,7 @@ Default private key export options: PKCS#8, PEM, no encryption.
 <a name="module_core/rsa.DEFAULT_PUBLIC_ENCODING"></a>
 
 ### core/rsa.DEFAULT\_PUBLIC\_ENCODING
-Default public key export options: SPKI, PEM.
+Default public key export options: PKCS#1, DER.
 
 **Kind**: static constant of [<code>core/rsa</code>](#module_core/rsa)  
 <a name="module_core/rsa.RSA_OPTIONS"></a>
@@ -209,7 +453,8 @@ The private key is encoded as PKCS#8; if a passphrase is provided it is
 encrypted with AES-256-CBC.
 
 **Kind**: static method of [<code>core/rsa</code>](#module_core/rsa)  
-**Returns**: An object with `publicKey` and `privateKey` PEM strings.  
+**Returns**: An object with `privateKey` as a PEM string and `publicKey` as a
+  base64-encoded DER string.  
 
 | Param | Description |
 | --- | --- |
@@ -218,14 +463,14 @@ encrypted with AES-256-CBC.
 <a name="module_core/rsa.parsePublicKey"></a>
 
 ### core/rsa.parsePublicKey(str) ⇒
-Parses a PEM-encoded public key.
+Parses a base64 encoded DER-encoded public key.
 
 **Kind**: static method of [<code>core/rsa</code>](#module_core/rsa)  
 **Returns**: A `KeyObject` representing the public key.  
 
 | Param | Description |
 | --- | --- |
-| str | PEM string containing the public key. |
+| str | base64 string containing the DER encoded public key. |
 
 <a name="module_core/rsa.parsePrivateKey"></a>
 
@@ -252,32 +497,6 @@ Derives a public key from an existing key object, PEM/DER string, or Buffer.
 | --- | --- |
 | input | The source key material to derive the public key from. |
 
-<a name="module_core/rsa.encrypt"></a>
-
-### core/rsa.encrypt(key, data) ⇒
-Encrypts a plaintext string using RSA-OAEP-SHA-256.
-
-**Kind**: static method of [<code>core/rsa</code>](#module_core/rsa)  
-**Returns**: A `Buffer` containing the RSA ciphertext.  
-
-| Param | Description |
-| --- | --- |
-| key | A public `KeyObject` used to encrypt. |
-| data | Plaintext string to encrypt. |
-
-<a name="module_core/rsa.decrypt"></a>
-
-### core/rsa.decrypt(key, data) ⇒
-Decrypts RSA ciphertext produced by [encrypt](encrypt) using RSA-OAEP-SHA-256.
-
-**Kind**: static method of [<code>core/rsa</code>](#module_core/rsa)  
-**Returns**: A `Buffer` containing the recovered plaintext.  
-
-| Param | Description |
-| --- | --- |
-| key | A private `KeyObject` used to decrypt. |
-| data | Ciphertext buffer or string to decrypt. |
-
 <a name="module_core/rsa.checkKeyPairMatches"></a>
 
 ### core/rsa.checkKeyPairMatches(privateKey, publicKey) ⇒
@@ -292,98 +511,19 @@ and verifying a random challenge.
 | privateKey | The private `KeyObject` to sign with. |
 | publicKey | The public `KeyObject` to verify against. |
 
-<a name="module_core/util"></a>
-
-## core/util
-String encoding and error-narrowing utilities.
-
-Provides base64 helpers, a salt-and-nonce stuffing layer used to
-ensure each RSA encryption of the same plaintext produces a unique
-ciphertext, and a Node.js `ErrnoException` type guard.
-
-
-* [core/util](#module_core/util)
-    * [.base64Encode(str)](#module_core/util.base64Encode) ⇒
-    * [.base64Decode(str)](#module_core/util.base64Decode) ⇒
-    * [.stuffString(str)](#module_core/util.stuffString) ⇒
-    * [.unstuffString(str)](#module_core/util.unstuffString) ⇒
-    * [.isNodeError(error)](#module_core/util.isNodeError) ⇒
-
-<a name="module_core/util.base64Encode"></a>
-
-### core/util.base64Encode(str) ⇒
-Encodes a UTF-8 string to base64.
-
-**Kind**: static method of [<code>core/util</code>](#module_core/util)  
-**Returns**: The base64-encoded string.  
-
-| Param | Description |
-| --- | --- |
-| str | The string to encode. |
-
-<a name="module_core/util.base64Decode"></a>
-
-### core/util.base64Decode(str) ⇒
-Decodes a base64 string to UTF-8.
-
-**Kind**: static method of [<code>core/util</code>](#module_core/util)  
-**Returns**: The decoded UTF-8 string.  
-
-| Param | Description |
-| --- | --- |
-| str | The base64-encoded string to decode. |
-
-<a name="module_core/util.stuffString"></a>
-
-### core/util.stuffString(str) ⇒
-Wraps a string with a random salt and timestamp nonce.
-Format: `<salt>:<base64(str)>:<nonce>`
-
-**Kind**: static method of [<code>core/util</code>](#module_core/util)  
-**Returns**: The stuffed string in `salt:base64:nonce` format.  
-
-| Param | Description |
-| --- | --- |
-| str | The string to wrap. |
-
-<a name="module_core/util.unstuffString"></a>
-
-### core/util.unstuffString(str) ⇒
-Extracts the original string from a stuffed value produced by [stuffString](stuffString).
-
-**Kind**: static method of [<code>core/util</code>](#module_core/util)  
-**Returns**: The original unwrapped string.  
-**Throws**:
-
-- <code>Error</code> If the input is empty or not in the expected `salt:base64:nonce` format.
-
-
-| Param | Description |
-| --- | --- |
-| str | The stuffed string in `salt:base64:nonce` format. |
-
-<a name="module_core/util.isNodeError"></a>
-
-### core/util.isNodeError(error) ⇒
-Type guard that narrows `error` to `NodeJS.ErrnoException`.
-
-**Kind**: static method of [<code>core/util</code>](#module_core/util)  
-**Returns**: `true` when `error` is an `Error` with a `code` property.  
-
-| Param | Description |
-| --- | --- |
-| error | The value to test. |
-
 <a name="module_core/vltx"></a>
 
 ## core/vltx
 Core [Vltx](Vltx) class and associated configuration types.
 
-A `Vltx` is an RSA-encrypted key-value store backed by a JSON file.
-Values are encrypted with the embedded public key and decrypted on
-demand when a private key is supplied. The class implements the
-`Map<string, string>` interface and exposes static factory methods
-([Vltx.open](Vltx.open), [Vltx.openForReading](Vltx.openForReading),
+A `Vltx` is an encrypted key-value store backed by a JSON file.
+Short secrets (≤ [MAX_SECRET_BYTES](MAX_SECRET_BYTES) UTF-8 bytes) are stored as
+RSA-OAEP-SHA-256 encrypted [SecretEntry](SecretEntry) values. Larger values
+are stored as [LargeEntry](LargeEntry) values using hybrid AES-256-GCM
+encryption with an RSA-wrapped key — chosen automatically at write
+time. Values are decrypted on demand when a private key is supplied.
+The class implements the `Map<string, AnyEntry>` interface and exposes
+static factory methods ([Vltx.open](Vltx.open), [Vltx.openForReading](Vltx.openForReading),
 [Vltx.openForWriting](Vltx.openForWriting)) plus instance-level key lifecycle
 helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
 
@@ -411,7 +551,6 @@ helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
             * [.delete(key)](#module_core/vltx--module.exports+delete) ⇒
             * [.forEach(callbackfn, thisArg)](#module_core/vltx--module.exports+forEach)
             * [.get(key)](#module_core/vltx--module.exports+get) ⇒
-            * [.getRaw(key)](#module_core/vltx--module.exports+getRaw) ⇒
             * [.has(key)](#module_core/vltx--module.exports+has)
             * [.set(key, value)](#module_core/vltx--module.exports+set) ⇒
             * [.replace(key, value)](#module_core/vltx--module.exports+replace) ⇒
@@ -421,6 +560,7 @@ helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
             * [.getOrInsert(key, value)](#module_core/vltx--module.exports+getOrInsert) ⇒
             * [.getOrInsertComputed(key, callbackfn)](#module_core/vltx--module.exports+getOrInsertComputed) ⇒
         * _static_
+            * [.MAX_SECRET_BYTES](#module_core/vltx--module.exports.MAX_SECRET_BYTES)
             * [.tagFunction(vault, strings, values)](#module_core/vltx--module.exports.tagFunction) ⇒
                 * [.tagFunction](#module_core/vltx--module.exports.tagFunction.tagFunction)
             * [.init(filename, privateKeyOpts)](#module_core/vltx--module.exports.init) ⇒
@@ -432,10 +572,13 @@ helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
 
 ### module.exports ⏏
 An encrypted key-value store that implements the
-`Map<string, string>` interface.
+`Map<string, AnyEntry>` interface.
 
-Secrets are stored as RSA-encrypted strings with added entropy
-(see [stuffString](stuffString)).
+Short secrets (≤ [MAX_SECRET_BYTES](MAX_SECRET_BYTES) UTF-8 bytes) are stored as
+RSA-OAEP-SHA-256 encrypted [SecretEntry](SecretEntry) values with a random
+per-encryption salt. Larger values are stored as [LargeEntry](LargeEntry)
+values using hybrid AES-256-GCM encryption. The entry type is chosen
+automatically at write time.
 Reading a value transparently decrypts it when a private key is
 available; without a private key the raw (encrypted) value is
 returned instead.
@@ -622,13 +765,13 @@ pairs. Existing entries are cleared before loading.
 <a name="module_core/vltx--module.exports+toJSON"></a>
 
 #### module.exports.toJSON() ⇒
-Returns a plain-object representation of the vault suitable
-for JSON serialization. Secrets are sorted by key for
+Returns a plain-object representation of the vault suitable for JSON
+serialization. Secrets are serialized to base64 and sorted by key for
 deterministic output.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
-**Returns**: An object with a PEM `publicKey` string (or `null`)
-  and the `secrets` map.  
+**Returns**: An object with a base64-encoded DER `publicKey` string (or
+  `null`) and the `secrets` map as base64-encoded entry strings.  
 <a name="module_core/vltx--module.exports+clear"></a>
 
 #### module.exports.clear()
@@ -664,38 +807,11 @@ insertion order.
 <a name="module_core/vltx--module.exports+get"></a>
 
 #### module.exports.get(key) ⇒
-Decrypts and returns the secret stored under `key`.
-
-Unlike the `Map` iteration methods (`entries()`, `values()`,
-`[Symbol.iterator]`), which yield raw ciphertext, this method
-performs RSA decryption and returns the original plaintext.
+Returns the raw [AnyEntry](AnyEntry) stored under `key`, or `undefined` if
+the key does not exist. Use [Vltx#decrypt](Vltx#decrypt) to obtain the plaintext.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
-**Returns**: The decrypted plaintext value, or `undefined` if `key`
-  does not exist.  
-**Throws**:
-
-- <code>Error</code> If no private key is loaded (`canDecrypt` is
-  `false`).
-
-
-| Param | Description |
-| --- | --- |
-| key | The secret key to look up. |
-
-<a name="module_core/vltx--module.exports+getRaw"></a>
-
-#### module.exports.getRaw(key) ⇒
-Returns the raw base64-encoded ciphertext for `key` without
-decrypting it.
-
-Useful for inspecting or transferring encrypted values without
-requiring a private key. Returns `undefined` when the key does
-not exist.
-
-**Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
-**Returns**: The base64-encoded ciphertext, or `undefined` if `key`
-  does not exist.  
+**Returns**: The entry, or `undefined` if `key` does not exist.  
 
 | Param | Description |
 | --- | --- |
@@ -717,9 +833,10 @@ vault.
 
 #### module.exports.set(key, value) ⇒
 Inserts a new encrypted secret under `key`.
-The plaintext value is RSA-encrypted with the vault's public
-key before storage. Use [replace](replace) to overwrite an
-existing key.
+Values within [MAX_SECRET_BYTES](MAX_SECRET_BYTES) UTF-8 bytes are stored as
+a [SecretEntry](SecretEntry) (RSA-OAEP-SHA-256); larger values are stored
+automatically as a [LargeEntry](LargeEntry) (hybrid AES-256-GCM).
+Use [replace](replace) to overwrite an existing key.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
@@ -728,8 +845,6 @@ existing key.
 - <code>Error</code> If no public key is available.
 - <code>Error</code> If `key` already exists — use [replace](replace)
   to overwrite.
-- <code>Error</code> If `value` exceeds [MAX_SECRET_BYTES](MAX_SECRET_BYTES)
-  UTF-8 bytes.
 
 
 | Param | Description |
@@ -743,15 +858,15 @@ existing key.
 Inserts or overwrites a secret under `key` (upsert).
 Behaves identically to [set](set) but does not throw when
 the key already exists, making it safe for both initial
-population and updates.
+population and updates. Values within [MAX_SECRET_BYTES](MAX_SECRET_BYTES)
+UTF-8 bytes use RSA-OAEP-SHA-256; larger values use hybrid
+AES-256-GCM encryption automatically.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 **Throws**:
 
 - <code>Error</code> If no public key is available.
-- <code>Error</code> If `value` exceeds [MAX_SECRET_BYTES](MAX_SECRET_BYTES)
-  UTF-8 bytes.
 
 
 | Param | Description |
@@ -817,6 +932,15 @@ Returns the value for `key`, inserting the result of
 | key | The key to look up or insert. |
 | callbackfn | Factory called with `key` to produce the   default value. |
 
+<a name="module_core/vltx--module.exports.MAX_SECRET_BYTES"></a>
+
+#### module.exports.MAX\_SECRET\_BYTES
+Byte threshold above which values are stored as [LargeEntry](LargeEntry)
+(hybrid AES-256-GCM) rather than [SecretEntry](SecretEntry) (RSA-OAEP-SHA-256).
+Equal to the RSA-OAEP-SHA-256 plaintext cap for a 4096-bit key
+(512-byte modulus − 66-byte OAEP overhead − 16-byte random salt).
+
+**Kind**: static constant of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 <a name="module_core/vltx--module.exports.tagFunction"></a>
 
 #### module.exports.tagFunction(vault, strings, values) ⇒
@@ -919,8 +1043,6 @@ constructor, so the returned vault has `canDecrypt` false.
 
 - <code>Error</code> If `opts.filename` is not provided.
 - <code>Error</code> If `opts.filename` does not exist.
-- <code>Error</code> If the vault file is loaded but contains no
-  valid public key.
 
 
 | Param | Description |
@@ -1039,11 +1161,12 @@ vault to stdout.
 <a name="listKeys"></a>
 
 ## listKeys(v) ⇒ <code>void</code>
-Prints all secret keys in `v` as a formatted, sorted list.
+Prints a table of all secrets in `v` sorted by key, showing entry
+type and timestamps.
 
 **Kind**: global function  
 
 | Param | Description |
 | --- | --- |
-| v | The vault whose keys to display. |
+| v | The vault whose entries to display. |
 

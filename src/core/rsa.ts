@@ -7,12 +7,11 @@
  * @module
  */
 import { generateKeyPairSync, createPublicKey,
-    createPrivateKey, constants,
+    createPrivateKey,
     randomBytes, sign, verify } from 'node:crypto';
-import { privateDecrypt, type KeyPairExportResult, type RSAKeyPairOptions,
+import { type RSAKeyPairOptions,
     type PrivateKeyExportOptions, type PublicKeyExportOptions,
-    type KeyObject, type PrivateKeyInput, type PublicKeyInput,
-    publicEncrypt } from 'node:crypto';
+    type KeyObject, type PrivateKeyInput, type PublicKeyInput } from 'node:crypto';
 
 /** Default private key export options: PKCS#8, PEM, no encryption. */
 export const DEFAULT_PRIVATE_ENCODING: PrivateKeyExportOptions<'pkcs8'> = {
@@ -20,10 +19,10 @@ export const DEFAULT_PRIVATE_ENCODING: PrivateKeyExportOptions<'pkcs8'> = {
         format: 'pem'
 };
 
-/** Default public key export options: SPKI, PEM. */
-export const DEFAULT_PUBLIC_ENCODING: PublicKeyExportOptions<'spki'>  = {
-    type: 'spki',
-    format: 'pem'
+/** Default public key export options: PKCS#1, DER. */
+export const DEFAULT_PUBLIC_ENCODING: PublicKeyExportOptions<'pkcs1'>  = {
+    type: 'pkcs1',
+    format: 'der'
 };
 
 /** Default RSA key-pair generation options: 4096-bit modulus with {@link DEFAULT_PRIVATE_ENCODING} and {@link DEFAULT_PUBLIC_ENCODING}. */
@@ -38,10 +37,11 @@ export const RSA_OPTIONS: RSAKeyPairOptions = {
  * The private key is encoded as PKCS#8; if a passphrase is provided it is
  * encrypted with AES-256-CBC.
  * @param passphrase - Optional passphrase to encrypt the private key.
- * @returns An object with `publicKey` and `privateKey` PEM strings.
+ * @returns An object with `privateKey` as a PEM string and `publicKey` as a
+ *   base64-encoded DER string.
  */
 export function generateRSAKeyPair(passphrase?: string):
-    KeyPairExportResult<RSAKeyPairOptions> {
+    { privateKey: string; publicKey: string } {
     const privateKeyEncoding: PrivateKeyExportOptions<'pkcs8'> = {
         ...DEFAULT_PRIVATE_ENCODING
     };
@@ -55,16 +55,22 @@ export function generateRSAKeyPair(passphrase?: string):
 
     const opts: RSAKeyPairOptions = { ...RSA_OPTIONS, privateKeyEncoding };
 
-    return generateKeyPairSync('rsa', opts);
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', opts);
+
+    return { privateKey: privateKey as string, publicKey: (publicKey as Buffer).toString('base64') };
 }
 
 /**
- * Parses a PEM-encoded public key.
- * @param str - PEM string containing the public key.
+ * Parses a base64 encoded DER-encoded public key.
+ * @param str - base64 string containing the DER encoded public key.
  * @returns A `KeyObject` representing the public key.
  */
 export function parsePublicKey(str: string): KeyObject {
-    return createPublicKey(str);
+    const derBuffer = Buffer.from(str, 'base64');
+    return createPublicKey({
+        key: derBuffer,
+        ...DEFAULT_PUBLIC_ENCODING
+    });
 }
 
 /**
@@ -93,36 +99,6 @@ type DerivePublicKeyInput = PublicKeyInput | string | Buffer | KeyObject;
 export function derivePublicKey(input: DerivePublicKeyInput): KeyObject {
     return createPublicKey(input);
 }
-
-/**
- * Encrypts a plaintext string using RSA-OAEP-SHA-256.
- * @param key - A public `KeyObject` used to encrypt.
- * @param data - Plaintext string to encrypt.
- * @returns A `Buffer` containing the RSA ciphertext.
- */
-export function encrypt(key: KeyObject, data: string) {
-    return publicEncrypt({
-        key,
-        padding: constants.RSA_PKCS1_OAEP_PADDING,
-        oaepHash: 'sha256'
-    }, data);
-}
-
-/**
- * Decrypts RSA ciphertext produced by {@link encrypt} using RSA-OAEP-SHA-256.
- * @param key - A private `KeyObject` used to decrypt.
- * @param data - Ciphertext buffer or string to decrypt.
- * @returns A `Buffer` containing the recovered plaintext.
- */
-export function decrypt(key: KeyObject,
-    data: NodeJS.ArrayBufferView | string): NonSharedBuffer {
-    return privateDecrypt({
-        key,
-        padding: constants.RSA_PKCS1_OAEP_PADDING,
-        oaepHash: 'sha256'
-    }, data);
-}
-
 
 /**
  * Verifies that a private key and public key form a matching pair by signing

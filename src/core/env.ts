@@ -4,7 +4,7 @@
  * Merges caller overrides with `VLTX_FILE`, `VLTX_KEY_FILE`, and
  * `VLTX_PASSPHRASE` environment variables, falling back to defaults
  * of `.vltx` and `.vltx.rsa` in the current working directory.
- * @module
+ * @module env
  */
 import type { VltxConfig } from './vltx.js';
 import { join } from 'node:path';

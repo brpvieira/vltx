@@ -9,6 +9,7 @@ const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mock
             delete: vi.fn().mockReturnValue(true),
             replace: vi.fn(),
             get: vi.fn().mockReturnValue('the-value'),
+            decrypt: vi.fn().mockReturnValue(Buffer.from('the-value')),
             filename: '/test/.vltx',
         };
         const MockVault = Object.assign(
@@ -254,7 +255,7 @@ describe('getHandler', () => {
 
     beforeEach(() => {
         exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
-        mockVaultInstance.get.mockReturnValue('the-value');
+        mockVaultInstance.decrypt.mockReturnValue(Buffer.from('the-value'));
         MockVault.openForReading.mockClear();
     });
 
@@ -269,9 +270,9 @@ describe('getHandler', () => {
         );
     });
 
-    it('calls get with the given key', async () => {
+    it('calls decrypt with the given key', async () => {
         await getHandler(makeArgv({ key: 'mykey' }));
-        expect(mockVaultInstance.get).toHaveBeenCalledWith('mykey');
+        expect(mockVaultInstance.decrypt).toHaveBeenCalledWith('mykey');
     });
 
     it('logs the secret value when the key exists', async () => {
@@ -279,8 +280,14 @@ describe('getHandler', () => {
         expect(mockLog).toHaveBeenCalledWith('the-value');
     });
 
+    it('logs a string value directly when decrypt returns a string', async () => {
+        mockVaultInstance.decrypt.mockReturnValueOnce('plain-string');
+        await getHandler(makeArgv({ key: 'mykey' }));
+        expect(mockLog).toHaveBeenCalledWith('plain-string');
+    });
+
     it('logs an error and exits with 1 when key is not found', async () => {
-        mockVaultInstance.get.mockReturnValueOnce(undefined);
+        mockVaultInstance.decrypt.mockReturnValueOnce(undefined);
         await expect(getHandler(makeArgv({ key: 'missing' }))).rejects.toThrow('process.exit');
         expect(mockError).toHaveBeenCalledWith('Key not found: missing');
         expect(exitSpy).toHaveBeenCalledWith(1);
