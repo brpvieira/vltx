@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, statSync, writeFileSy
 import { join } from 'node:path';
 import Vltx, { MAX_SECRET_BYTES } from '../../src/core/vltx.js';
 import { generateRSAKeyPair, parsePrivateKey, parsePublicKey, derivePublicKey } from '../../src/core/rsa.js';
-import { SecretEntry } from '../../src/core/entry.js';
+import { SecretEntry, LargeEntry } from '../../src/core/entry.js';
 
 let privateKeyPem: string;
 let publicKeyB64Der: string;
@@ -357,28 +357,49 @@ describe('Vltx.set / Vltx.replace', () => {
         expect(v.decrypt('secret')?.toString('utf8')).eq('my-plaintext');
     });
 
-    it('set throws when value exceeds MAX_SECRET_BYTES', () => {
-        const v = new Vltx({ privateKey: privateKeyPem });
-        const oversized = 'a'.repeat(MAX_SECRET_BYTES + 1);
-        assert.throws(() => v.set('k', oversized), /maximum secret size/);
-    });
-
-    it('replace throws when value exceeds MAX_SECRET_BYTES', () => {
-        const v = new Vltx({ privateKey: privateKeyPem });
-        const oversized = 'a'.repeat(MAX_SECRET_BYTES + 1);
-        assert.throws(() => v.replace('k', oversized), /maximum secret size/);
-    });
-
-    it('set accepts a value exactly at MAX_SECRET_BYTES', () => {
+    it('set uses SecretEntry for values at exactly MAX_SECRET_BYTES', () => {
         const v = new Vltx({ privateKey: privateKeyPem });
         const atLimit = 'a'.repeat(MAX_SECRET_BYTES);
-        assert.doesNotThrow(() => v.set('k', atLimit));
+        v.set('kAtLimit', atLimit);
+        assert.ok(v.get('kAtLimit') instanceof SecretEntry);
     });
 
-    it('replace accepts a value exactly at MAX_SECRET_BYTES', () => {
+    it('replace uses SecretEntry for values at exactly MAX_SECRET_BYTES', () => {
         const v = new Vltx({ privateKey: privateKeyPem });
         const atLimit = 'a'.repeat(MAX_SECRET_BYTES);
-        assert.doesNotThrow(() => v.replace('k', atLimit));
+        v.replace('kAtLimit', atLimit);
+        assert.ok(v.get('kAtLimit') instanceof SecretEntry);
+    });
+
+    it('set automatically uses LargeEntry for values exceeding MAX_SECRET_BYTES', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        const oversized = 'a'.repeat(MAX_SECRET_BYTES + 1);
+        assert.doesNotThrow(() => v.set('kLarge', oversized));
+        assert.ok(v.get('kLarge') instanceof LargeEntry);
+    });
+
+    it('replace automatically uses LargeEntry for values exceeding MAX_SECRET_BYTES', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        const oversized = 'a'.repeat(MAX_SECRET_BYTES + 1);
+        assert.doesNotThrow(() => v.replace('kLarge', oversized));
+        assert.ok(v.get('kLarge') instanceof LargeEntry);
+    });
+
+    it('large values stored via set can be decrypted correctly', () => {
+        const v = new Vltx({ privateKey: privateKeyPem });
+        const oversized = 'x'.repeat(MAX_SECRET_BYTES + 1);
+        v.set('bigKey', oversized);
+        expect(v.decrypt('bigKey')?.toString('utf8')).eq(oversized);
+    });
+
+    it('large values round-trip through write and read', () => {
+        const vaultPath = join(tmpDir, 'large-roundtrip.vault.json');
+        const v1 = new Vltx({ privateKey: privateKeyPem });
+        const oversized = 'y'.repeat(MAX_SECRET_BYTES + 100);
+        v1.set('bigKey', oversized);
+        v1.write(vaultPath);
+        const v2 = new Vltx({ filename: vaultPath, privateKey: privateKeyPem });
+        expect(v2.decrypt('bigKey')?.toString('utf8')).eq(oversized);
     });
 });
 

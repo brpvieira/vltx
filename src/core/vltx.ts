@@ -1,11 +1,14 @@
 /**
  * Core {@link Vltx} class and associated configuration types.
  *
- * A `Vltx` is an RSA-encrypted key-value store backed by a JSON file.
- * Values are encrypted with the embedded public key and decrypted on
- * demand when a private key is supplied. The class implements the
- * `Map<string, AnyEntry>` interface and exposes static factory methods
- * ({@link Vltx.open}, {@link Vltx.openForReading},
+ * A `Vltx` is an encrypted key-value store backed by a JSON file.
+ * Short secrets (≤ {@link MAX_SECRET_BYTES} UTF-8 bytes) are stored as
+ * RSA-OAEP-SHA-256 encrypted {@link SecretEntry} values. Larger values
+ * are stored as {@link LargeEntry} values using hybrid AES-256-GCM
+ * encryption with an RSA-wrapped key — chosen automatically at write
+ * time. Values are decrypted on demand when a private key is supplied.
+ * The class implements the `Map<string, AnyEntry>` interface and exposes
+ * static factory methods ({@link Vltx.open}, {@link Vltx.openForReading},
  * {@link Vltx.openForWriting}) plus instance-level key lifecycle
  * helpers ({@link Vltx#lock}, {@link Vltx#unlock}).
  * @module
@@ -14,7 +17,7 @@ import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { KeyObject } from 'node:crypto';
 import { parsePrivateKey, parsePublicKey, derivePublicKey, generateRSAKeyPair,
     checkKeyPairMatches, DEFAULT_PUBLIC_ENCODING } from './rsa.js';
-import { parseEntry, SecretEntry, type AnyEntry } from './entry.js';
+import { parseEntry, SecretEntry, LargeEntry, type AnyEntry } from './entry.js';
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
     return error instanceof Error && 'code' in error;
@@ -30,6 +33,12 @@ export type PrivateKeyConfig = {
     passphrase?: string | undefined,
 };
 
+/**
+ * Byte threshold above which values are stored as {@link LargeEntry}
+ * (hybrid AES-256-GCM) rather than {@link SecretEntry} (RSA-OAEP-SHA-256).
+ * Equal to the RSA-OAEP-SHA-256 plaintext cap for a 4096-bit key
+ * (512-byte modulus − 66-byte OAEP overhead − 16-byte random salt).
+ */
 export const MAX_SECRET_BYTES = 430 as const;
 
 /**
@@ -78,8 +87,11 @@ export function tagFunction(vault: Vltx, strings: TemplateStringsArray,
  * An encrypted key-value store that implements the
  * `Map<string, AnyEntry>` interface.
  *
- * Secrets are stored as RSA-OAEP-SHA-256 encrypted entries with a random
- * per-encryption salt (see {@link BaseEntry#setRaw}).
+ * Short secrets (≤ {@link MAX_SECRET_BYTES} UTF-8 bytes) are stored as
+ * RSA-OAEP-SHA-256 encrypted {@link SecretEntry} values with a random
+ * per-encryption salt. Larger values are stored as {@link LargeEntry}
+ * values using hybrid AES-256-GCM encryption. The entry type is chosen
+ * automatically at write time.
  * Reading a value transparently decrypts it when a private key is
  * available; without a private key the raw (encrypted) value is
  * returned instead.
@@ -412,17 +424,17 @@ export default class Vltx implements Map<string, AnyEntry> {
         return this.#secrets.has(key);
     }
 
-    // Encrypts value and stores it; called by set and replace.
+    // Encrypts value and stores it; uses LargeEntry for values over MAX_SECRET_BYTES.
     #doSet(key: string, value: string | AnyEntry): this {
         if (!this.#publicKey) {
             throw new Error('Public key is required to update the vault');
         }
 
         if (typeof value === 'string') {
-            if (Buffer.byteLength(value, 'utf8') > MAX_SECRET_BYTES) {
-                throw new Error(`Value exceeds maximum secret size of ${MAX_SECRET_BYTES} bytes.`);
-            }
-            const entry = new SecretEntry();
+            const EntryClass = Buffer.byteLength(value, 'utf8') > MAX_SECRET_BYTES ?
+                LargeEntry :
+                SecretEntry;
+            const entry = new EntryClass();
             entry.setRaw(this.#publicKey!, value);
             this.#secrets.set(key, entry);
         } else {
@@ -433,17 +445,16 @@ export default class Vltx implements Map<string, AnyEntry> {
 
     /**
      * Inserts a new encrypted secret under `key`.
-     * The plaintext value is RSA-encrypted with the vault's public
-     * key before storage. Use {@link replace} to overwrite an
-     * existing key.
+     * Values within {@link MAX_SECRET_BYTES} UTF-8 bytes are stored as
+     * a {@link SecretEntry} (RSA-OAEP-SHA-256); larger values are stored
+     * automatically as a {@link LargeEntry} (hybrid AES-256-GCM).
+     * Use {@link replace} to overwrite an existing key.
      * @param key - The secret key.
      * @param value - The plaintext value to encrypt and store.
      * @returns `this` for chaining.
      * @throws {Error} If no public key is available.
      * @throws {Error} If `key` already exists — use {@link replace}
      *   to overwrite.
-     * @throws {Error} If `value` exceeds {@link MAX_SECRET_BYTES}
-     *   UTF-8 bytes.
      */
     set(key: string, value: string | AnyEntry): this {
         if (this.has(key)) {
@@ -459,13 +470,13 @@ export default class Vltx implements Map<string, AnyEntry> {
      * Inserts or overwrites a secret under `key` (upsert).
      * Behaves identically to {@link set} but does not throw when
      * the key already exists, making it safe for both initial
-     * population and updates.
+     * population and updates. Values within {@link MAX_SECRET_BYTES}
+     * UTF-8 bytes use RSA-OAEP-SHA-256; larger values use hybrid
+     * AES-256-GCM encryption automatically.
      * @param key - The secret key.
      * @param value - The plaintext value to encrypt and store.
      * @returns `this` for chaining.
      * @throws {Error} If no public key is available.
-     * @throws {Error} If `value` exceeds {@link MAX_SECRET_BYTES}
-     *   UTF-8 bytes.
      */
     replace(key: string, value: string): this {
         return this.#doSet(key, value);
