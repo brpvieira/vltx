@@ -27,7 +27,7 @@ Store encrypted secrets in a file you can safely commit to source control, packa
 ## Installation
 
 ```sh
-npm install vltx
+npm install @brpvieira/vltx
 ```
 
 This gives you both the **`vltx`** command and the **`vltx`** module for use in your application.
@@ -188,7 +188,7 @@ Import `setup` from the package and call it once at startup. It loads the vault 
 
 **ESM (import)**
 ```js
-import { setup } from 'vltx';
+import { setup } from '@brpvieira/vltx';
 
 // reads .vltx and .vltx.rsa from cwd
 const secret = setup().tagFunction;
@@ -196,7 +196,7 @@ const secret = setup().tagFunction;
 
 **CommonJS (require)**
 ```js
-const { setup } = require('vltx');
+const { setup } = require('@brpvieira/vltx');
 
 const secret = setup().tagFunction;
 ```
@@ -214,7 +214,7 @@ The tag function returns the decrypted string for a known key, or an empty strin
 
 **ESM**
 ```js
-import { setup } from 'vltx';
+import { setup } from '@brpvieira/vltx';
 
 const secret = setup({ filename: 'secrets/production.vault' }).tagFunction;
 
@@ -223,7 +223,7 @@ const db = new Database(secret`DB_URL`);
 
 **CommonJS**
 ```js
-const { setup } = require('vltx');
+const { setup } = require('@brpvieira/vltx');
 
 const secret = setup({ filename: 'secrets/production.vault' }).tagFunction;
 ```
@@ -238,7 +238,7 @@ returns a `Buffer` (or `undefined` if the key is absent):
 
 **ESM**
 ```js
-import { setup } from 'vltx';
+import { setup } from '@brpvieira/vltx';
 
 const vault = setup();
 
@@ -248,7 +248,7 @@ const apiKey = vault.decrypt('API_KEY')?.toString('utf8');
 
 **CommonJS**
 ```js
-const { setup } = require('vltx');
+const { setup } = require('@brpvieira/vltx');
 
 const vault = setup();
 
@@ -263,7 +263,7 @@ const apiKey = vault.decrypt('API_KEY')?.toString('utf8');
 The `tagFunction` property is typed automatically — no declaration file needed:
 
 ```ts
-import { setup } from 'vltx';
+import { setup } from '@brpvieira/vltx';
 
 const secret = setup().tagFunction;
 const dbUrl: string = secret`DB_URL`;
@@ -291,7 +291,7 @@ Because ESM caches modules, the vault instances created by `setup()` persist for
 Removes one cached instance by its alias. The next `setup()` call with the same alias will create a fresh instance — useful when a vault needs to be reconfigured (e.g. a different file or key) without restarting the process.
 
 ```js
-import { setup, remove } from 'vltx';
+import { setup, remove } from '@brpvieira/vltx';
 
 const v1 = setup({ alias: 'main', filename: 'dev.vault' });
 remove('main');
@@ -305,7 +305,7 @@ Returns the removed `Vltx` instance, or `undefined` if the alias was not found.
 Removes all cached instances at once. Intended primarily for test environments that need a clean slate between test cases.
 
 ```js
-import { setup, clearAll } from 'vltx';
+import { setup, clearAll } from '@brpvieira/vltx';
 
 afterEach(() => {
     clearAll(); // each test starts with an empty cache
@@ -359,7 +359,7 @@ cannot be parsed, or the private key does not match the vault's public key.
 
 **ESM**
 ```js
-import { Vltx } from 'vltx';
+import { Vltx } from '@brpvieira/vltx';
 
 const v = Vltx.openForReading({
     filename: 'secrets/production.vault',
@@ -372,7 +372,7 @@ const dbUrl = v.decrypt('DB_URL')?.toString('utf8');
 
 **CommonJS**
 ```js
-const { Vltx } = require('vltx');
+const { Vltx } = require('@brpvieira/vltx');
 
 const v = Vltx.openForReading({
     filename: 'secrets/production.vault',
@@ -397,7 +397,7 @@ Values exceeding **430 UTF-8 bytes** (`MAX_SECRET_BYTES`) are stored automatical
 
 **ESM**
 ```js
-import { Vltx } from 'vltx';
+import { Vltx } from '@brpvieira/vltx';
 
 const v = Vltx.openForWriting({ filename: 'secrets/production.vault' });
 v.set('NEW_SECRET', 'super-secret-value');
@@ -407,7 +407,7 @@ v.write();
 
 **CommonJS**
 ```js
-const { Vltx } = require('vltx');
+const { Vltx } = require('@brpvieira/vltx');
 
 const v = Vltx.openForWriting({ filename: 'secrets/production.vault' });
 v.set('NEW_SECRET', 'super-secret-value');
@@ -425,7 +425,7 @@ key material `opts` contains.
 
 **ESM**
 ```js
-import { Vltx } from 'vltx';
+import { Vltx } from '@brpvieira/vltx';
 
 // Read and write in one call
 const v = Vltx.open({
@@ -439,7 +439,7 @@ const mem = Vltx.open({ publicKey: myPublicKeyPem });
 
 **CommonJS**
 ```js
-const { Vltx } = require('vltx');
+const { Vltx } = require('@brpvieira/vltx');
 
 const v = Vltx.open({
     filename: 'secrets/production.vault',
@@ -458,7 +458,7 @@ memory.
 
 **ESM**
 ```js
-import { Vltx } from 'vltx';
+import { Vltx } from '@brpvieira/vltx';
 
 const v = Vltx.openForReading({
     filename: 'secrets/production.vault',
@@ -477,7 +477,7 @@ v.unlock({ privateKeyFilename: '/run/secrets/vault.rsa' });
 
 **CommonJS**
 ```js
-const { Vltx } = require('vltx');
+const { Vltx } = require('@brpvieira/vltx');
 
 const v = Vltx.openForReading({
     filename: 'secrets/production.vault',
@@ -498,7 +498,7 @@ a missing or unreadable vault file is silently ignored rather than thrown.
 **Using a factory method is the recommended approach.**
 
 ```js
-import { Vltx } from 'vltx';
+import { Vltx } from '@brpvieira/vltx';
 
 const v = new Vltx({
     filename: 'secrets/production.vault',
