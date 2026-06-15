@@ -22,11 +22,14 @@ parse PEM-encoded keys into <code>KeyObject</code> instances.</p>
 </dd>
 <dt><a href="#module_core/vltx">core/vltx</a></dt>
 <dd><p>Core <a href="Vltx">Vltx</a> class and associated configuration types.</p>
-<p>A <code>Vltx</code> is an RSA-encrypted key-value store backed by a JSON file.
-Values are encrypted with the embedded public key and decrypted on
-demand when a private key is supplied. The class implements the
-<code>Map&lt;string, AnyEntry&gt;</code> interface and exposes static factory methods
-(<a href="Vltx.open">Vltx.open</a>, <a href="Vltx.openForReading">Vltx.openForReading</a>,
+<p>A <code>Vltx</code> is an encrypted key-value store backed by a JSON file.
+Short secrets (≤ <a href="MAX_SECRET_BYTES">MAX_SECRET_BYTES</a> UTF-8 bytes) are stored as
+RSA-OAEP-SHA-256 encrypted <a href="SecretEntry">SecretEntry</a> values. Larger values
+are stored as <a href="LargeEntry">LargeEntry</a> values using hybrid AES-256-GCM
+encryption with an RSA-wrapped key — chosen automatically at write
+time. Values are decrypted on demand when a private key is supplied.
+The class implements the <code>Map&lt;string, AnyEntry&gt;</code> interface and exposes
+static factory methods (<a href="Vltx.open">Vltx.open</a>, <a href="Vltx.openForReading">Vltx.openForReading</a>,
 <a href="Vltx.openForWriting">Vltx.openForWriting</a>) plus instance-level key lifecycle
 helpers (<a href="Vltx#lock">Vltx#lock</a>, <a href="Vltx#unlock">Vltx#unlock</a>).</p>
 </dd>
@@ -513,11 +516,14 @@ and verifying a random challenge.
 ## core/vltx
 Core [Vltx](Vltx) class and associated configuration types.
 
-A `Vltx` is an RSA-encrypted key-value store backed by a JSON file.
-Values are encrypted with the embedded public key and decrypted on
-demand when a private key is supplied. The class implements the
-`Map<string, AnyEntry>` interface and exposes static factory methods
-([Vltx.open](Vltx.open), [Vltx.openForReading](Vltx.openForReading),
+A `Vltx` is an encrypted key-value store backed by a JSON file.
+Short secrets (≤ [MAX_SECRET_BYTES](MAX_SECRET_BYTES) UTF-8 bytes) are stored as
+RSA-OAEP-SHA-256 encrypted [SecretEntry](SecretEntry) values. Larger values
+are stored as [LargeEntry](LargeEntry) values using hybrid AES-256-GCM
+encryption with an RSA-wrapped key — chosen automatically at write
+time. Values are decrypted on demand when a private key is supplied.
+The class implements the `Map<string, AnyEntry>` interface and exposes
+static factory methods ([Vltx.open](Vltx.open), [Vltx.openForReading](Vltx.openForReading),
 [Vltx.openForWriting](Vltx.openForWriting)) plus instance-level key lifecycle
 helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
 
@@ -554,6 +560,7 @@ helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
             * [.getOrInsert(key, value)](#module_core/vltx--module.exports+getOrInsert) ⇒
             * [.getOrInsertComputed(key, callbackfn)](#module_core/vltx--module.exports+getOrInsertComputed) ⇒
         * _static_
+            * [.MAX_SECRET_BYTES](#module_core/vltx--module.exports.MAX_SECRET_BYTES)
             * [.tagFunction(vault, strings, values)](#module_core/vltx--module.exports.tagFunction) ⇒
                 * [.tagFunction](#module_core/vltx--module.exports.tagFunction.tagFunction)
             * [.init(filename, privateKeyOpts)](#module_core/vltx--module.exports.init) ⇒
@@ -567,8 +574,11 @@ helpers ([Vltx#lock](Vltx#lock), [Vltx#unlock](Vltx#unlock)).
 An encrypted key-value store that implements the
 `Map<string, AnyEntry>` interface.
 
-Secrets are stored as RSA-OAEP-SHA-256 encrypted entries with a random
-per-encryption salt (see [BaseEntry#setRaw](BaseEntry#setRaw)).
+Short secrets (≤ [MAX_SECRET_BYTES](MAX_SECRET_BYTES) UTF-8 bytes) are stored as
+RSA-OAEP-SHA-256 encrypted [SecretEntry](SecretEntry) values with a random
+per-encryption salt. Larger values are stored as [LargeEntry](LargeEntry)
+values using hybrid AES-256-GCM encryption. The entry type is chosen
+automatically at write time.
 Reading a value transparently decrypts it when a private key is
 available; without a private key the raw (encrypted) value is
 returned instead.
@@ -823,9 +833,10 @@ vault.
 
 #### module.exports.set(key, value) ⇒
 Inserts a new encrypted secret under `key`.
-The plaintext value is RSA-encrypted with the vault's public
-key before storage. Use [replace](replace) to overwrite an
-existing key.
+Values within [MAX_SECRET_BYTES](MAX_SECRET_BYTES) UTF-8 bytes are stored as
+a [SecretEntry](SecretEntry) (RSA-OAEP-SHA-256); larger values are stored
+automatically as a [LargeEntry](LargeEntry) (hybrid AES-256-GCM).
+Use [replace](replace) to overwrite an existing key.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
@@ -834,8 +845,6 @@ existing key.
 - <code>Error</code> If no public key is available.
 - <code>Error</code> If `key` already exists — use [replace](replace)
   to overwrite.
-- <code>Error</code> If `value` exceeds [MAX_SECRET_BYTES](MAX_SECRET_BYTES)
-  UTF-8 bytes.
 
 
 | Param | Description |
@@ -849,15 +858,15 @@ existing key.
 Inserts or overwrites a secret under `key` (upsert).
 Behaves identically to [set](set) but does not throw when
 the key already exists, making it safe for both initial
-population and updates.
+population and updates. Values within [MAX_SECRET_BYTES](MAX_SECRET_BYTES)
+UTF-8 bytes use RSA-OAEP-SHA-256; larger values use hybrid
+AES-256-GCM encryption automatically.
 
 **Kind**: instance method of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 **Returns**: `this` for chaining.  
 **Throws**:
 
 - <code>Error</code> If no public key is available.
-- <code>Error</code> If `value` exceeds [MAX_SECRET_BYTES](MAX_SECRET_BYTES)
-  UTF-8 bytes.
 
 
 | Param | Description |
@@ -923,6 +932,15 @@ Returns the value for `key`, inserting the result of
 | key | The key to look up or insert. |
 | callbackfn | Factory called with `key` to produce the   default value. |
 
+<a name="module_core/vltx--module.exports.MAX_SECRET_BYTES"></a>
+
+#### module.exports.MAX\_SECRET\_BYTES
+Byte threshold above which values are stored as [LargeEntry](LargeEntry)
+(hybrid AES-256-GCM) rather than [SecretEntry](SecretEntry) (RSA-OAEP-SHA-256).
+Equal to the RSA-OAEP-SHA-256 plaintext cap for a 4096-bit key
+(512-byte modulus − 66-byte OAEP overhead − 16-byte random salt).
+
+**Kind**: static constant of [<code>module.exports</code>](#exp_module_core/vltx--module.exports)  
 <a name="module_core/vltx--module.exports.tagFunction"></a>
 
 #### module.exports.tagFunction(vault, strings, values) ⇒
