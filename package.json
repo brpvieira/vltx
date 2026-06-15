@@ -62,6 +62,7 @@
     "prepare": "husky",
     "commit": "commit",
     "debug-cli": "npm run build && node --inspect-brk ./dist/bin/cli.js",
+    "cli": "npm run build && ./dist/bin/cli.js",
     "docs:build-ts": "tsc --project tsconfig.json --outDir ./dist-docs",
     "docs:generate-md": "jsdoc2md ./dist-docs/**/*.js > API.md",
     "docs:clean": "rm -fr ./dist-docs/*",

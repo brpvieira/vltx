@@ -60,11 +60,20 @@ const SYMBOL: Record<LogLevelName, string> = {
  * Messages whose level is below `level` are silently discarded.
  * Defaults to `'info'` at module load time.
  *
- * @param level - The new minimum log level.
+ * Accepts either a {@link LogLevelName} string or a numeric verbosity integer
+ * where `3 = debug`, `2 = info`, `1 = warn`, `0 = silent (error only)`.
+ * When `level` is `undefined` or not a recognised value the threshold is left
+ * unchanged.
+ *
+ * @param level - The new minimum log level as a name or verbosity integer.
  * @returns {void}
  */
-export function setLogLevel(level: LogLevelName): void {
-    threshold = LogLevel[level];
+export function setLogLevel(level: LogLevelName | number | undefined): void {
+    if (typeof level === 'number') {
+        threshold = LogLevel.error - level;
+    } else if (level !== undefined) {
+        threshold = LogLevel[level];
+    }
 }
 
 /**
@@ -105,14 +114,56 @@ export function _doLog(level: LogLevelName, ...args: unknown[]): void {
     stream.write(`${tag}${message}\n`);
 }
 
+/** A function that accepts any number of arguments and logs them. */
+type LogHandler = (..._args: unknown[]) => void;
+
 /** Logs a `debug`-level message. @param args - Message parts. */
-export const debug = (...args: unknown[]): void => _doLog('debug', ...args);
+export const debug: LogHandler = (...args) => _doLog('debug', ...args);
+
 /** Logs an `info`-level message. @param args - Message parts. */
-export const info  = (...args: unknown[]): void => _doLog('info',  ...args);
+export const info: LogHandler = (...args) => _doLog('info',  ...args);
+
 /** Logs a `warn`-level message. @param args - Message parts. */
-export const warn  = (...args: unknown[]): void => _doLog('warn',  ...args);
+export const warn: LogHandler = (...args) => _doLog('warn',  ...args);
+
 /** Logs an `error`-level message to stderr. @param args - Message parts. */
-export const error = (...args: unknown[]): void => _doLog('error', ...args);
+export const error: LogHandler = (...args) => _doLog('error', ...args);
 
 /** Writes a message at `normal` level: no tag, stdout only. @param args - Message parts. */
-export const log = (...args: unknown[]): void => _doLog('normal', ...args);
+export const log: LogHandler = (...args) => _doLog('normal', ...args);
+
+/**
+ * A partial map of {@link LogLevelName} → {@link LogHandler} that can be
+ * embedded in any configuration object to route library-level log events.
+ * Missing entries are silently ignored.
+ */
+export type Logger = Partial<Record<LogLevelName, LogHandler>>;
+
+const noop: LogHandler = () => void 0;
+
+/**
+ * A {@link Logger} whose every handler is a no-op.
+ * Use as the default when callers supply no logger so that every
+ * `logger?.level?.()` call is safe without a truthy check.
+ */
+export const NOOP_LOGGER: Logger = {
+    debug: noop,
+    info: noop,
+    warn: noop,
+    error: noop,
+    normal: noop
+} as const;
+
+/**
+ * A {@link Logger} that delegates each level to the corresponding
+ * module-level export (`debug`, `info`, `warn`, `error`, `log`).
+ * Spread this into a {@link VltxConfig} to forward library messages
+ * to the CLI output stream.
+ */
+export const STD_LOGGER: Logger = {
+    debug,
+    info,
+    warn,
+    error,
+    normal: log,
+} as const;

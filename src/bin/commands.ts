@@ -3,7 +3,7 @@ import type { ArgumentsCamelCase } from 'yargs';
 import { createInterface } from 'node:readline';
 import getConfig from '../core/env.js';
 import { listKeys } from './helpers.js';
-import { log, error } from '../core/logger.js';
+import { log, error, STD_LOGGER, setLogLevel, type Logger } from '../core/logger.js';
 
 type CommandLineArguments = Partial<{
     'vault-file'?: string | undefined,
@@ -52,17 +52,22 @@ function readPassphrase(): Promise<string> {
  * a fully resolved vault configuration. When `--passphrase` is given,
  * reads the passphrase from stdin (piped) or an interactive prompt (TTY).
  *
+ * Applies the `--verbose` flag via {@link setLogLevel} and attaches
+ * {@link STD_LOGGER} so that library-level log events are forwarded to
+ * the CLI output streams.
+ *
  * @param argv - Parsed yargs arguments from the CLI.
- * @returns Resolved configuration with filename and key paths.
+ * @returns Resolved configuration with filename, key paths, and logger.
  */
 export async function resolveConfig(argv: ArgumentsCamelCase): Promise<VltxCliConfig> {
+    setLogLevel(argv['verbose'] as number);
     const args: VltxConfig = {};
     const { 'vault-file': vaultFile,
         'key-file': keyFile, passphrase } = argv as CommandLineArguments;
     if (vaultFile) args.filename = vaultFile;
     if (keyFile) args.privateKeyFilename = keyFile;
     if (passphrase) args.passphrase = await readPassphrase();
-    return getConfig(args) as VltxCliConfig;
+    return { ...getConfig(args), ...STD_LOGGER } as VltxCliConfig;
 }
 
 /**
@@ -73,7 +78,7 @@ export async function resolveConfig(argv: ArgumentsCamelCase): Promise<VltxCliCo
  */
 export async function initHandler(argv: ArgumentsCamelCase): Promise<void> {
     const cfg = await resolveConfig(argv);
-    Vltx.init(cfg.filename!, cfg);
+    Vltx.init(cfg.filename!, cfg, cfg as Logger);
     log(`Vault initialized:  ${cfg.filename}`);
     log(`Private key:        ${cfg.privateKeyFilename}`);
 }

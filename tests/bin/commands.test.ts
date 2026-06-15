@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ArgumentsCamelCase } from 'yargs';
 
-const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError, mockRl } =
+const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError,
+    mockSetLogLevel, mockStdLogger, mockRl } =
     vi.hoisted(() => {
         const mockVaultInstance = {
             set: vi.fn(),
@@ -28,17 +29,24 @@ const { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mock
         const mockListKeys = vi.fn();
         const mockLog = vi.fn();
         const mockError = vi.fn();
+        const mockSetLogLevel = vi.fn();
+        const mockStdLogger = {
+            debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), normal: vi.fn(),
+        };
         const mockRl = {
             question: vi.fn((_prompt: string, cb: (_answer: string) => void) => cb('test-passphrase')),
             close: vi.fn(),
         };
-        return { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError, mockRl };
+        return { mockVaultInstance, MockVault, mockGetConfig, mockListKeys, mockLog, mockError,
+            mockSetLogLevel, mockStdLogger, mockRl };
     });
 
 vi.mock('../../src/core/vltx.js', () => ({ default: MockVault }));
 vi.mock('../../src/core/env.js', () => ({ default: mockGetConfig }));
 vi.mock('../../src/bin/helpers.js', () => ({ listKeys: mockListKeys }));
-vi.mock('../../src/core/logger.js', () => ({ log: mockLog, error: mockError }));
+vi.mock('../../src/core/logger.js', () => ({
+    log: mockLog, error: mockError, setLogLevel: mockSetLogLevel, STD_LOGGER: mockStdLogger,
+}));
 vi.mock('node:readline', () => ({ createInterface: vi.fn().mockReturnValue(mockRl) }));
 
 import {
@@ -123,18 +131,29 @@ describe('resolveConfig', () => {
         Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });
     });
 
-    it('returns the value from getConfig', async () => {
+    it('returns the value from getConfig merged with STD_LOGGER', async () => {
         const result = await resolveConfig(makeArgv());
-        expect(result).toEqual({ filename: '/test/.vltx', privateKeyFilename: '/test/.vltx.rsa' });
+        expect(result).toMatchObject({ filename: '/test/.vltx', privateKeyFilename: '/test/.vltx.rsa' });
+    });
+
+    it('calls setLogLevel with the verbose argument', async () => {
+        await resolveConfig(makeArgv({ verbose: 3 }));
+        expect(mockSetLogLevel).toHaveBeenCalledWith(3);
+    });
+
+    it('calls setLogLevel with undefined when verbose is not provided', async () => {
+        await resolveConfig(makeArgv());
+        expect(mockSetLogLevel).toHaveBeenCalledWith(undefined);
     });
 });
 
 describe('initHandler', () => {
-    it('calls Vault.init with resolved filename and config', async () => {
+    it('calls Vault.init with resolved filename, config, and logger', async () => {
         await initHandler(makeArgv());
         expect(MockVault.init).toHaveBeenCalledWith(
             '/test/.vltx',
             expect.objectContaining({ filename: '/test/.vltx' }),
+            expect.any(Object),
         );
     });
 

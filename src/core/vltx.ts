@@ -18,6 +18,7 @@ import { KeyObject } from 'node:crypto';
 import { parsePrivateKey, parsePublicKey, derivePublicKey, generateRSAKeyPair,
     checkKeyPairMatches, DEFAULT_PUBLIC_ENCODING } from './rsa.js';
 import { parseEntry, SecretEntry, LargeEntry, type AnyEntry } from './entry.js';
+import { NOOP_LOGGER, type Logger } from './logger.js';
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
     return error instanceof Error && 'code' in error;
@@ -47,6 +48,10 @@ export const MAX_SECRET_BYTES = 430 as const;
  * Supply key material via the inherited {@link PrivateKeyConfig}
  * fields or `publicKey` to enable encryption/decryption without
  * loading a file.
+ *
+ * Optionally mix in a {@link Logger} to receive structured log events
+ * from the vault. Spread {@link STD_LOGGER} to forward events to the
+ * CLI output, or omit entirely to silence all output.
  */
 export type VltxConfig = {
     /** Path to the vault JSON file to read from and write to. */
@@ -56,7 +61,7 @@ export type VltxConfig = {
      * file is loaded.
      */
     publicKey?: string | KeyObject | undefined
-} & PrivateKeyConfig;
+} & PrivateKeyConfig & Logger;
 
 
 /**
@@ -115,6 +120,8 @@ export default class Vltx implements Map<string, AnyEntry> {
 
     #secrets: Map<string, AnyEntry> = new Map();
 
+    #logger: Logger;
+
     /**
      * Creates a new Vltx instance.
      *
@@ -128,17 +135,13 @@ export default class Vltx implements Map<string, AnyEntry> {
      *   an optional file path.
      */
     constructor(opts: VltxConfig) {
+        this.#logger = { ...NOOP_LOGGER, ...opts };
         if (opts.filename) {
             this.#filename = opts.filename;
             this.tryRead();
         }
 
-        this.setPrivateKey(opts);
-
-        if (this.#privateKey && !this.#publicKey) {
-            this.setPublicKey(derivePublicKey(this.#privateKey));
-        }
-
+        this.unlock(opts);
     }
 
     /**
@@ -154,17 +157,23 @@ export default class Vltx implements Map<string, AnyEntry> {
         let keyStr: string = '';
         if (privateKey) {
             if (privateKey instanceof KeyObject) {
+                this.#logger?.debug?.('Private key loaded from object.');
                 this.#privateKey = privateKey;
                 return this;
             }
             if (typeof privateKey === 'string') {
+                this.#logger?.debug?.('Private key loaded from string.');
                 keyStr = privateKey;
             }
         } else if (privateKeyFilename) {
+            this.#logger?.debug?.(`Reading private key from ${privateKeyFilename}.`);
             keyStr = readFileSync(privateKeyFilename, 'utf8');
         }
 
-        if (!keyStr) { return this; }
+        if (!keyStr) {
+            this.#logger?.info?.('Private key not available, encrypt-only vault.');
+            return this;
+        }
         this.#privateKey = parsePrivateKey(keyStr, passphrase);
         return this;
     }
@@ -175,6 +184,7 @@ export default class Vltx implements Map<string, AnyEntry> {
      * @returns `this` for chaining.
      */
     setPublicKey(key: KeyObject): this {
+        this.#logger?.debug?.('Public key loaded.');
         this.#publicKey = key;
         return this;
     }
@@ -211,6 +221,7 @@ export default class Vltx implements Map<string, AnyEntry> {
      */
     lock(): this {
         this.#privateKey = undefined;
+        this.#logger?.info?.('Vault locked');
         return this;
     }
 
@@ -225,8 +236,10 @@ export default class Vltx implements Map<string, AnyEntry> {
     unlock(opts: PrivateKeyConfig): this {
         this.setPrivateKey(opts);
         if (this.#privateKey && !this.#publicKey) {
+            this.#logger?.debug?.('Deriving public key from private key.');
             this.setPublicKey(derivePublicKey(this.#privateKey));
         }
+        this.#logger?.info?.('Vault unlocked');
         return this;
     }
 
@@ -250,6 +263,7 @@ export default class Vltx implements Map<string, AnyEntry> {
         }
         this.#loaded = false;
         const raw = readFileSync(filename, 'utf8');
+        this.#logger?.info?.(`Read ${filename}`);
         const { publicKey, secrets } = JSON.parse(raw);
 
         if (!publicKey || typeof publicKey !== 'string') {
@@ -281,6 +295,7 @@ export default class Vltx implements Map<string, AnyEntry> {
                 if (err.code !== 'ENOENT') {
                     throw err;
                 }
+                this.#logger?.warn?.(`${this.#filename} not found.`);
                 return this;
             }
             throw err;
@@ -318,6 +333,7 @@ export default class Vltx implements Map<string, AnyEntry> {
             const entry = parseEntry(v);
             this.#secrets.set(k, entry);
         });
+        this.#logger?.info?.(`Loaded ${this.size} secrets into vault.`);
         return this;
     }
 
@@ -356,7 +372,10 @@ export default class Vltx implements Map<string, AnyEntry> {
     get size(): number { return this.#secrets.size; }
 
     /** Removes all secrets from the vault. */
-    clear(): void { this.#secrets.clear(); }
+    clear(): void {
+        this.#secrets.clear();
+        this.#logger?.debug?.('Vault cleared');
+    }
 
     get [Symbol.toStringTag](): string {
         return 'Vltx';
@@ -369,7 +388,12 @@ export default class Vltx implements Map<string, AnyEntry> {
      *   otherwise.
      */
     delete(key: string): boolean {
-        return this.#secrets.delete(key);
+        if (this.#secrets.delete(key)) {
+            this.#logger?.info?.(`Deleted ${key} from vault.`);
+            return true;
+        }
+        this.#logger?.warn?.(`${key} not found in vault.`);
+        return false;
     }
 
     /**
@@ -395,6 +419,7 @@ export default class Vltx implements Map<string, AnyEntry> {
         if (this.has(key)) {
             return this.#secrets.get(key);
         }
+        this.#logger?.warn?.(`${key} not found in vault.`);
         return undefined;
     }
 
@@ -440,6 +465,7 @@ export default class Vltx implements Map<string, AnyEntry> {
         } else {
             this.#secrets.set(key, value);
         }
+        this.#logger?.info?.(`${key} added to vault.`);
         return this;
     }
 
@@ -573,13 +599,15 @@ export default class Vltx implements Map<string, AnyEntry> {
      * @param filename - Destination path for the vault JSON file.
      * @param privateKeyOpts - Key material. Must include either
      *   `privateKey` or `privateKeyFilename`.
+     * @param logger - Optional {@link Logger} that receives structured
+     *   log events during initialization (key generation, file writes).
+     *   Pass {@link STD_LOGGER} to forward events to the CLI output.
      * @returns A configured {@link Vltx} backed by `filename`.
      * @throws {Error} If neither `privateKey` nor
      *   `privateKeyFilename` is provided.
      */
-    static init(
-        filename: string, privateKeyOpts: PrivateKeyConfig,
-    ): Vltx {
+    static init(filename: string, privateKeyOpts: PrivateKeyConfig,
+        logger?: Logger): Vltx {
         if (!privateKeyOpts.privateKey &&
             !privateKeyOpts.privateKeyFilename) {
             throw new Error(
@@ -588,23 +616,28 @@ export default class Vltx implements Map<string, AnyEntry> {
             );
         }
 
+        logger?.info?.(`Initializing vault: ${filename}`);
+
         const { privateKeyFilename, passphrase } = privateKeyOpts;
         if (privateKeyFilename) {
             try {
                 statSync(privateKeyFilename);
             } catch (err: unknown) {
                 if (isNodeError(err) && err.code === 'ENOENT') {
+                    logger?.warn?.(`${privateKeyFilename} not found.`);
                     const { privateKey } = generateRSAKeyPair(passphrase);
                     writeFileSync(privateKeyFilename, privateKey as string,
                         { mode: 0o600 });
+                    logger?.warn?.(`New ${privateKeyFilename} created.`);
                 } else {
                     throw err;
                 }
             }
         }
 
-        const v = new Vltx({ ...privateKeyOpts, filename });
+        const v = new Vltx({ ...privateKeyOpts, filename, ...logger });
         v.write();
+        logger?.info?.(`Vault written to ${filename}.`);
         return v;
     }
 

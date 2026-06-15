@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
     _doLog, log, setLogLevel, debug, info, warn, error,
+    NOOP_LOGGER, STD_LOGGER,
 } from '../../src/core/logger.js';
 
 // ─── test helpers ────────────────────────────────────────────────────────────
@@ -65,6 +66,47 @@ describe('_doLog', () => {
             } else {
                 expect(spy).not.toHaveBeenCalled();
             }
+        });
+
+        describe('numeric verbosity', () => {
+            it('verbose=3 enables debug-level output', () => {
+                setLogLevel(3);
+                _doLog('debug', 'msg');
+                expect(stdoutSpy).toHaveBeenCalledOnce();
+            });
+
+            it('verbose=2 enables info-level output but suppresses debug', () => {
+                setLogLevel(2);
+                _doLog('debug', 'msg');
+                expect(stdoutSpy).not.toHaveBeenCalled();
+                _doLog('info', 'msg');
+                expect(stdoutSpy).toHaveBeenCalledOnce();
+            });
+
+            it('verbose=1 enables warn-level output but suppresses info', () => {
+                setLogLevel(1);
+                _doLog('info', 'msg');
+                expect(stdoutSpy).not.toHaveBeenCalled();
+                _doLog('warn', 'msg');
+                expect(stdoutSpy).toHaveBeenCalledOnce();
+            });
+
+            it('verbose=0 suppresses warn but passes error', () => {
+                setLogLevel(0);
+                _doLog('warn', 'msg');
+                expect(stdoutSpy).not.toHaveBeenCalled();
+                _doLog('error', 'msg');
+                expect(stderrSpy).toHaveBeenCalledOnce();
+            });
+
+            it('undefined leaves the threshold unchanged', () => {
+                setLogLevel('warn');
+                setLogLevel(undefined);
+                _doLog('info', 'msg');
+                expect(stdoutSpy).not.toHaveBeenCalled();
+                _doLog('warn', 'msg');
+                expect(stdoutSpy).toHaveBeenCalledOnce();
+            });
         });
     });
 
@@ -204,6 +246,88 @@ describe('convenience wrappers', () => {
 
     it('log writes to stdout with no tag', () => {
         log('msg');
+        expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('msg'));
+        expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining('[NORMAL]'));
+    });
+});
+
+// ─── NOOP_LOGGER ─────────────────────────────────────────────────────────────
+
+describe('NOOP_LOGGER', () => {
+    let stdoutSpy: ReturnType<typeof vi.spyOn>;
+    let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+        stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+        stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    });
+
+    afterEach(() => {
+        stdoutSpy.mockRestore();
+        stderrSpy.mockRestore();
+    });
+
+    it('all handlers are defined', () => {
+        expect(NOOP_LOGGER.debug).toBeDefined();
+        expect(NOOP_LOGGER.info).toBeDefined();
+        expect(NOOP_LOGGER.warn).toBeDefined();
+        expect(NOOP_LOGGER.error).toBeDefined();
+        expect(NOOP_LOGGER.normal).toBeDefined();
+    });
+
+    it('all handlers silently discard calls without writing to any stream', () => {
+        NOOP_LOGGER.debug?.('msg');
+        NOOP_LOGGER.info?.('msg');
+        NOOP_LOGGER.warn?.('msg');
+        NOOP_LOGGER.error?.('msg');
+        NOOP_LOGGER.normal?.('msg');
+        expect(stdoutSpy).not.toHaveBeenCalled();
+        expect(stderrSpy).not.toHaveBeenCalled();
+    });
+});
+
+// ─── STD_LOGGER ──────────────────────────────────────────────────────────────
+
+describe('STD_LOGGER', () => {
+    let stdoutSpy: ReturnType<typeof vi.spyOn>;
+    let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+        setLogLevel('debug');
+        setTTY(process.stdout, undefined);
+        setTTY(process.stderr, undefined);
+        stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+        stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    });
+
+    afterEach(() => {
+        stdoutSpy.mockRestore();
+        stderrSpy.mockRestore();
+        setLogLevel('info');
+    });
+
+    it('debug delegates to the debug log function', () => {
+        STD_LOGGER.debug?.('msg');
+        expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('[DEBUG] msg'));
+    });
+
+    it('info delegates to the info log function', () => {
+        STD_LOGGER.info?.('msg');
+        expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('[INFO] msg'));
+    });
+
+    it('warn delegates to the warn log function', () => {
+        STD_LOGGER.warn?.('msg');
+        expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('[WARN] msg'));
+    });
+
+    it('error delegates to the error log function (stderr)', () => {
+        STD_LOGGER.error?.('msg');
+        expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[ERROR] msg'));
+    });
+
+    it('normal delegates to the log function (no tag)', () => {
+        STD_LOGGER.normal?.('msg');
         expect(stdoutSpy).toHaveBeenCalledWith(expect.stringContaining('msg'));
         expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining('[NORMAL]'));
     });
