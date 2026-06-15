@@ -98,6 +98,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "overrides": {
+    "esbuild": "^0.28.1"
+  },
   "dependencies": {
     "dotenv": "^17.4.2",
     "yargs": "^17.7.2"
