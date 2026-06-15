@@ -117,7 +117,7 @@ type AESEnvelope = {
     rsaEncryptedKey: Buffer, // 512 bytes
     iv: Buffer, // 12 bytes
     authTag: Buffer, // 16 bytes
-    chipher: Buffer // variable length
+    cipher: Buffer // variable length
 };
 
 /**
@@ -144,17 +144,17 @@ export function wrapAESPayload(payload: AESEnvelope): Buffer {
 export function aesEncrypt(publicKey: KeyObject, payload: string): AESEnvelope {
     const aesKey = randomBytes(32);
     const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', aesKey, iv);
-    const chipher = Buffer.concat([
-        cipher.update(payload, 'utf8'),
-        cipher.final()
+    const gcm = createCipheriv('aes-256-gcm', aesKey, iv);
+    const cipher = Buffer.concat([
+        gcm.update(payload, 'utf8'),
+        gcm.final()
     ]);
-    const authTag = cipher.getAuthTag();
+    const authTag = gcm.getAuthTag();
     return {
         rsaEncryptedKey: rsaEncrypt(publicKey, aesKey),
         iv,
         authTag,
-        chipher
+        cipher
     };
 }
 
@@ -180,7 +180,7 @@ export function aesDecrypt(aesKey: Buffer, payload: AESEnvelope,
     decipher.setAuthTag(payload.authTag);
 
     const decrypted = Buffer.concat([
-        decipher.update(payload.chipher),
+        decipher.update(payload.cipher),
         decipher.final()]
     );
 
@@ -204,7 +204,7 @@ export function unwrapAESPayload(buf: Buffer): AESEnvelope {
         rsaEncryptedKey: buf.subarray(0, 512),
         iv: buf.subarray(512, 524), // 12 bytes
         authTag: buf.subarray(524, 540), // 16 bytes
-        chipher: buf.subarray(540)
+        cipher: buf.subarray(540)
     };
 }
 

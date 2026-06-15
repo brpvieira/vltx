@@ -329,7 +329,7 @@ describe('aesEncrypt', () => {
         assert.ok(Buffer.isBuffer(env.rsaEncryptedKey));
         assert.ok(Buffer.isBuffer(env.iv));
         assert.ok(Buffer.isBuffer(env.authTag));
-        assert.ok(Buffer.isBuffer(env.chipher));
+        assert.ok(Buffer.isBuffer(env.cipher));
     });
 
     it('rsaEncryptedKey is 512 bytes', () => {
@@ -345,13 +345,13 @@ describe('aesEncrypt', () => {
     });
 
     it('produces a non-empty ciphertext', () => {
-        assert.ok(aesEncrypt(pubKey, 'hello').chipher.byteLength > 0);
+        assert.ok(aesEncrypt(pubKey, 'hello').cipher.byteLength > 0);
     });
 
     it('produces different envelopes on each call for the same input', () => {
         const e1 = aesEncrypt(pubKey, 'same');
         const e2 = aesEncrypt(pubKey, 'same');
-        assert.notDeepEqual(e1.chipher, e2.chipher);
+        assert.notDeepEqual(e1.cipher, e2.cipher);
     });
 });
 
@@ -443,7 +443,7 @@ describe('wrapAESPayload / unwrapAESPayload', () => {
             rsaEncryptedKey: randomBytes(512),
             iv: randomBytes(12),
             authTag: randomBytes(16),
-            chipher: randomBytes(64)
+            cipher: randomBytes(64)
         };
     }
 
@@ -471,7 +471,7 @@ describe('wrapAESPayload / unwrapAESPayload', () => {
 
         it('places ciphertext starting at byte 540', () => {
             const env = makeEnvelope();
-            assert.deepStrictEqual(wrapAESPayload(env).subarray(540), env.chipher);
+            assert.deepStrictEqual(wrapAESPayload(env).subarray(540), env.cipher);
         });
     });
 
@@ -493,7 +493,7 @@ describe('wrapAESPayload / unwrapAESPayload', () => {
 
         it('recovers ciphertext', () => {
             const env = makeEnvelope();
-            assert.deepStrictEqual(unwrapAESPayload(wrapAESPayload(env)).chipher, env.chipher);
+            assert.deepStrictEqual(unwrapAESPayload(wrapAESPayload(env)).cipher, env.cipher);
         });
     });
 
